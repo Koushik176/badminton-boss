@@ -4,7 +4,7 @@
 The spec suggests Express + MongoDB/MySQL. This project runs on a fixed stack that does the same job:
 - React + TypeScript + Tailwind + shadcn/ui + Lucide + Zod + Recharts (as requested)
 - Your own hosted MySQL (e.g. PlanetScale or TiDB Cloud, normalized tables) or MongoDB Atlas as the database, connected with a connection string you provide and kept secret; organizer login with JWT (hashed passwords, signed tokens) and secure server logic
-- Server functions instead of REST endpoints. Every point is checked on the server against the scoring engine, so the server never trusts the browser's score.
+- REST endpoints under `/api/...` (e.g. `POST /api/matches/:id/point`, matching section 53 of the spec), protected by JWT checks in each handler. Every point is checked on the server against the scoring engine, so the server never trusts the browser's score.
 
 ## Visual direction
 Court-side sports look, not a generic admin panel: deep court-green and off-white, a bright shuttle-yellow accent, condensed bold numbers for scores, high contrast for use outdoors and under hall lights. The live scoring screen is full-screen with large tap zones and no navigation.
