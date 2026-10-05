@@ -3,7 +3,7 @@
 ## Stack adaptation
 The spec suggests Express + MongoDB/MySQL. This project runs on a fixed stack that does the same job:
 - React + TypeScript + Tailwind + shadcn/ui + Lucide + Zod + Recharts (as requested)
-- Lovable Cloud for the database (Postgres, normalized), organizer login and secure server logic
+- Your own hosted MySQL (e.g. PlanetScale or TiDB Cloud, normalized tables) or MongoDB Atlas as the database, connected with a connection string you provide and kept secret; organizer login with JWT (hashed passwords, signed tokens) and secure server logic
 - Server functions instead of REST endpoints. Every point is checked on the server against the scoring engine, so the server never trusts the browser's score.
 
 ## Visual direction
