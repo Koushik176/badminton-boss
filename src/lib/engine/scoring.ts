@@ -128,7 +128,7 @@ export function applyAction(state: MatchState, action: MatchAction): MatchState 
     case "GAME_STARTED": {
       if (state.status !== "GAME_OVER") throw new EngineError("No game to start.");
       const prev = state.games[state.games.length - 1];
-      const servingTeam = prev.winner!; // winner of previous game serves first
+      const servingTeam = prev!.winner!; // winner of previous game serves first
       const next: MatchState = {
         ...state,
         gameNumber: state.gameNumber + 1,
@@ -161,13 +161,13 @@ function rallyWon(state: MatchState, team: TeamKey): MatchState {
   if (team === serving) {
     // Same server; serving pair swaps service courts.
     const partner = partnerOf(state, serverId);
-    courts[serverId] = flip(courts[serverId]);
-    courts[partner] = flip(courts[partner]);
+    courts[serverId] = flip(courts[serverId]!);
+    courts[partner] = flip(courts[partner]!);
   } else {
     // Service over: nobody moves; new server is whoever stands in the court matching the score.
     serverId = playerInCourt(state, team, courtForScore(score[team]), courts);
   }
-  const serviceCourt = courts[serverId];
+  const serviceCourt = courts[serverId]!;
   const receiverId = playerInCourt(state, other(team === serving ? serving : team), serviceCourt, courts);
 
   let next: MatchState = {

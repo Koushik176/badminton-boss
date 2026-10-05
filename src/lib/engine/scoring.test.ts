@@ -68,18 +68,18 @@ describe("serving", () => {
   it("starts right court, receiver diagonal", () => {
     const s = start();
     expect(s.serviceCourt).toBe("right");
-    expect(s.courts.rahul).toBe("right");
-    expect(s.courts.arun).toBe("right");
-    expect(s.courts.kiran).toBe("left");
+    expect(s.courts["rahul"]).toBe("right");
+    expect(s.courts["arun"]).toBe("right");
+    expect(s.courts["kiran"]).toBe("left");
   });
   it("serving team wins: same server switches court, receiver changes", () => {
     const s = pts(start(), "A");
     expect(s.serverId).toBe("rahul");
-    expect(s.courts.rahul).toBe("left");
-    expect(s.courts.kiran).toBe("right");
+    expect(s.courts["rahul"]).toBe("left");
+    expect(s.courts["kiran"]).toBe("right");
     expect(s.serviceCourt).toBe("left");
     expect(s.receiverId).toBe("vijay");
-    expect(s.courts.arun).toBe("right");
+    expect(s.courts["arun"]).toBe("right");
   });
   it("receiving team wins: service over, no one moves", () => {
     const s = pts(start(), "B"); // B score 1 → left court
@@ -87,7 +87,7 @@ describe("serving", () => {
     expect(s.serverId).toBe("vijay");
     expect(s.serviceCourt).toBe("left");
     expect(s.receiverId).toBe("kiran");
-    expect(s.courts.rahul).toBe("right");
+    expect(s.courts["rahul"]).toBe("right");
   });
   it("even right, odd left", () => {
     let s = start();

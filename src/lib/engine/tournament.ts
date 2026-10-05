@@ -6,7 +6,7 @@ export function shuffle<T>(arr: readonly T[], rng: Rng = Math.random): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+    [a[i], a[j]] = [a[j]!, a[i]!];
   }
   return a;
 }
@@ -28,7 +28,7 @@ export function randomTeams(
   for (let attempt = 0; attempt < 20; attempt++) {
     const s = shuffle(free, opts.rng);
     result = [...locked];
-    for (let i = 0; i < s.length; i += 2) result.push([s[i], s[i + 1]]);
+    for (let i = 0; i < s.length; i += 2) result.push([s[i]!, s[i + 1]!]);
     if (free.length <= 2 || pairingKey(result) !== opts.previousKey) break;
   }
   return result;
@@ -37,7 +37,7 @@ export function randomTeams(
 export function roundRobin<T>(teams: T[]): [T, T][] {
   const out: [T, T][] = [];
   for (let i = 0; i < teams.length; i++)
-    for (let j = i + 1; j < teams.length; j++) out.push([teams[i], teams[j]]);
+    for (let j = i + 1; j < teams.length; j++) out.push([teams[i]!, teams[j]!]);
   return out;
 }
 
@@ -70,8 +70,8 @@ export function knockoutBracket(teams: string[], rng: Rng = Math.random) {
   const slots: BracketSlot[] = [];
   let k = 0;
   for (let i = 0; i < size / 2; i++) {
-    if (byeSlots.has(i)) slots.push({ round: 1, index: i, a: s[k++], b: null, bye: true });
-    else slots.push({ round: 1, index: i, a: s[k++], b: s[k++], bye: false });
+    if (byeSlots.has(i)) slots.push({ round: 1, index: i, a: s[k++]!, b: null, bye: true });
+    else slots.push({ round: 1, index: i, a: s[k++]!, b: s[k++]!, bye: false });
   }
   for (let r = 2; r <= rounds; r++)
     for (let i = 0; i < size / 2 ** r; i++) slots.push({ round: r, index: i, a: null, b: null, bye: false });
