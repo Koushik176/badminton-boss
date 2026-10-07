@@ -10,33 +10,213 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiDashboardRouteImport } from './routes/api/dashboard'
+import { Route as ApiPlayersRouteImport } from './routes/api/players'
+import { Route as ApiStatsRouteImport } from './routes/api/stats'
+import { Route as ApiTournamentsRouteImport } from './routes/api/tournaments'
+import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
+import { Route as ApiAuthSetupRouteImport } from './routes/api/auth/setup'
+import { Route as ApiAuthStatusRouteImport } from './routes/api/auth/status'
+import { Route as ApiMatchesIdRouteImport } from './routes/api/matches/$id'
+import { Route as ApiPlayersIdRouteImport } from './routes/api/players/$id'
+import { Route as ApiTournamentsIdRouteImport } from './routes/api/tournaments/$id'
+import { Route as ApiMatchesIdActionRouteImport } from './routes/api/matches/$id/action'
+import { Route as ApiMatchesIdConfirmRouteImport } from './routes/api/matches/$id/confirm'
+import { Route as ApiMatchesIdScheduleRouteImport } from './routes/api/matches/$id/schedule'
+import { Route as ApiMatchesIdStartRouteImport } from './routes/api/matches/$id/start'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDashboardRoute = ApiDashboardRouteImport.update({
+  id: '/api/dashboard',
+  path: '/api/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPlayersRoute = ApiPlayersRouteImport.update({
+  id: '/api/players',
+  path: '/api/players',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStatsRoute = ApiStatsRouteImport.update({
+  id: '/api/stats',
+  path: '/api/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTournamentsRoute = ApiTournamentsRouteImport.update({
+  id: '/api/tournaments',
+  path: '/api/tournaments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthLoginRoute = ApiAuthLoginRouteImport.update({
+  id: '/api/auth/login',
+  path: '/api/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSetupRoute = ApiAuthSetupRouteImport.update({
+  id: '/api/auth/setup',
+  path: '/api/auth/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthStatusRoute = ApiAuthStatusRouteImport.update({
+  id: '/api/auth/status',
+  path: '/api/auth/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMatchesIdRoute = ApiMatchesIdRouteImport.update({
+  id: '/api/matches/$id',
+  path: '/api/matches/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPlayersIdRoute = ApiPlayersIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiPlayersRoute,
+} as any)
+const ApiTournamentsIdRoute = ApiTournamentsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiTournamentsRoute,
+} as any)
+const ApiMatchesIdActionRoute = ApiMatchesIdActionRouteImport.update({
+  id: '/action',
+  path: '/action',
+  getParentRoute: () => ApiMatchesIdRoute,
+} as any)
+const ApiMatchesIdConfirmRoute = ApiMatchesIdConfirmRouteImport.update({
+  id: '/confirm',
+  path: '/confirm',
+  getParentRoute: () => ApiMatchesIdRoute,
+} as any)
+const ApiMatchesIdScheduleRoute = ApiMatchesIdScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => ApiMatchesIdRoute,
+} as any)
+const ApiMatchesIdStartRoute = ApiMatchesIdStartRouteImport.update({
+  id: '/start',
+  path: '/start',
+  getParentRoute: () => ApiMatchesIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/dashboard': typeof ApiDashboardRoute
+  '/api/players': typeof ApiPlayersRouteWithChildren
+  '/api/stats': typeof ApiStatsRoute
+  '/api/tournaments': typeof ApiTournamentsRouteWithChildren
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/setup': typeof ApiAuthSetupRoute
+  '/api/auth/status': typeof ApiAuthStatusRoute
+  '/api/matches/$id': typeof ApiMatchesIdRouteWithChildren
+  '/api/players/$id': typeof ApiPlayersIdRoute
+  '/api/tournaments/$id': typeof ApiTournamentsIdRoute
+  '/api/matches/$id/action': typeof ApiMatchesIdActionRoute
+  '/api/matches/$id/confirm': typeof ApiMatchesIdConfirmRoute
+  '/api/matches/$id/schedule': typeof ApiMatchesIdScheduleRoute
+  '/api/matches/$id/start': typeof ApiMatchesIdStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/dashboard': typeof ApiDashboardRoute
+  '/api/players': typeof ApiPlayersRouteWithChildren
+  '/api/stats': typeof ApiStatsRoute
+  '/api/tournaments': typeof ApiTournamentsRouteWithChildren
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/setup': typeof ApiAuthSetupRoute
+  '/api/auth/status': typeof ApiAuthStatusRoute
+  '/api/matches/$id': typeof ApiMatchesIdRouteWithChildren
+  '/api/players/$id': typeof ApiPlayersIdRoute
+  '/api/tournaments/$id': typeof ApiTournamentsIdRoute
+  '/api/matches/$id/action': typeof ApiMatchesIdActionRoute
+  '/api/matches/$id/confirm': typeof ApiMatchesIdConfirmRoute
+  '/api/matches/$id/schedule': typeof ApiMatchesIdScheduleRoute
+  '/api/matches/$id/start': typeof ApiMatchesIdStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/dashboard': typeof ApiDashboardRoute
+  '/api/players': typeof ApiPlayersRouteWithChildren
+  '/api/stats': typeof ApiStatsRoute
+  '/api/tournaments': typeof ApiTournamentsRouteWithChildren
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/setup': typeof ApiAuthSetupRoute
+  '/api/auth/status': typeof ApiAuthStatusRoute
+  '/api/matches/$id': typeof ApiMatchesIdRouteWithChildren
+  '/api/players/$id': typeof ApiPlayersIdRoute
+  '/api/tournaments/$id': typeof ApiTournamentsIdRoute
+  '/api/matches/$id/action': typeof ApiMatchesIdActionRoute
+  '/api/matches/$id/confirm': typeof ApiMatchesIdConfirmRoute
+  '/api/matches/$id/schedule': typeof ApiMatchesIdScheduleRoute
+  '/api/matches/$id/start': typeof ApiMatchesIdStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/api/dashboard'
+    | '/api/players'
+    | '/api/stats'
+    | '/api/tournaments'
+    | '/api/auth/login'
+    | '/api/auth/setup'
+    | '/api/auth/status'
+    | '/api/matches/$id'
+    | '/api/players/$id'
+    | '/api/tournaments/$id'
+    | '/api/matches/$id/action'
+    | '/api/matches/$id/confirm'
+    | '/api/matches/$id/schedule'
+    | '/api/matches/$id/start'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/api/dashboard'
+    | '/api/players'
+    | '/api/stats'
+    | '/api/tournaments'
+    | '/api/auth/login'
+    | '/api/auth/setup'
+    | '/api/auth/status'
+    | '/api/matches/$id'
+    | '/api/players/$id'
+    | '/api/tournaments/$id'
+    | '/api/matches/$id/action'
+    | '/api/matches/$id/confirm'
+    | '/api/matches/$id/schedule'
+    | '/api/matches/$id/start'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/dashboard'
+    | '/api/players'
+    | '/api/stats'
+    | '/api/tournaments'
+    | '/api/auth/login'
+    | '/api/auth/setup'
+    | '/api/auth/status'
+    | '/api/matches/$id'
+    | '/api/players/$id'
+    | '/api/tournaments/$id'
+    | '/api/matches/$id/action'
+    | '/api/matches/$id/confirm'
+    | '/api/matches/$id/schedule'
+    | '/api/matches/$id/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiDashboardRoute: typeof ApiDashboardRoute
+  ApiPlayersRoute: typeof ApiPlayersRouteWithChildren
+  ApiStatsRoute: typeof ApiStatsRoute
+  ApiTournamentsRoute: typeof ApiTournamentsRouteWithChildren
+  ApiAuthLoginRoute: typeof ApiAuthLoginRoute
+  ApiAuthSetupRoute: typeof ApiAuthSetupRoute
+  ApiAuthStatusRoute: typeof ApiAuthStatusRoute
+  ApiMatchesIdRoute: typeof ApiMatchesIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +228,159 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dashboard': {
+      id: '/api/dashboard'
+      path: '/api/dashboard'
+      fullPath: '/api/dashboard'
+      preLoaderRoute: typeof ApiDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/players': {
+      id: '/api/players'
+      path: '/api/players'
+      fullPath: '/api/players'
+      preLoaderRoute: typeof ApiPlayersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stats': {
+      id: '/api/stats'
+      path: '/api/stats'
+      fullPath: '/api/stats'
+      preLoaderRoute: typeof ApiStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tournaments': {
+      id: '/api/tournaments'
+      path: '/api/tournaments'
+      fullPath: '/api/tournaments'
+      preLoaderRoute: typeof ApiTournamentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/login': {
+      id: '/api/auth/login'
+      path: '/api/auth/login'
+      fullPath: '/api/auth/login'
+      preLoaderRoute: typeof ApiAuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/setup': {
+      id: '/api/auth/setup'
+      path: '/api/auth/setup'
+      fullPath: '/api/auth/setup'
+      preLoaderRoute: typeof ApiAuthSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/status': {
+      id: '/api/auth/status'
+      path: '/api/auth/status'
+      fullPath: '/api/auth/status'
+      preLoaderRoute: typeof ApiAuthStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/matches/$id': {
+      id: '/api/matches/$id'
+      path: '/api/matches/$id'
+      fullPath: '/api/matches/$id'
+      preLoaderRoute: typeof ApiMatchesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/players/$id': {
+      id: '/api/players/$id'
+      path: '/$id'
+      fullPath: '/api/players/$id'
+      preLoaderRoute: typeof ApiPlayersIdRouteImport
+      parentRoute: typeof ApiPlayersRoute
+    }
+    '/api/tournaments/$id': {
+      id: '/api/tournaments/$id'
+      path: '/$id'
+      fullPath: '/api/tournaments/$id'
+      preLoaderRoute: typeof ApiTournamentsIdRouteImport
+      parentRoute: typeof ApiTournamentsRoute
+    }
+    '/api/matches/$id/action': {
+      id: '/api/matches/$id/action'
+      path: '/action'
+      fullPath: '/api/matches/$id/action'
+      preLoaderRoute: typeof ApiMatchesIdActionRouteImport
+      parentRoute: typeof ApiMatchesIdRoute
+    }
+    '/api/matches/$id/confirm': {
+      id: '/api/matches/$id/confirm'
+      path: '/confirm'
+      fullPath: '/api/matches/$id/confirm'
+      preLoaderRoute: typeof ApiMatchesIdConfirmRouteImport
+      parentRoute: typeof ApiMatchesIdRoute
+    }
+    '/api/matches/$id/schedule': {
+      id: '/api/matches/$id/schedule'
+      path: '/schedule'
+      fullPath: '/api/matches/$id/schedule'
+      preLoaderRoute: typeof ApiMatchesIdScheduleRouteImport
+      parentRoute: typeof ApiMatchesIdRoute
+    }
+    '/api/matches/$id/start': {
+      id: '/api/matches/$id/start'
+      path: '/start'
+      fullPath: '/api/matches/$id/start'
+      preLoaderRoute: typeof ApiMatchesIdStartRouteImport
+      parentRoute: typeof ApiMatchesIdRoute
+    }
   }
 }
 
+interface ApiPlayersRouteChildren {
+  ApiPlayersIdRoute: typeof ApiPlayersIdRoute
+}
+
+const ApiPlayersRouteChildren: ApiPlayersRouteChildren = {
+  ApiPlayersIdRoute: ApiPlayersIdRoute,
+}
+
+const ApiPlayersRouteWithChildren = ApiPlayersRoute._addFileChildren(
+  ApiPlayersRouteChildren,
+)
+
+interface ApiTournamentsRouteChildren {
+  ApiTournamentsIdRoute: typeof ApiTournamentsIdRoute
+}
+
+const ApiTournamentsRouteChildren: ApiTournamentsRouteChildren = {
+  ApiTournamentsIdRoute: ApiTournamentsIdRoute,
+}
+
+const ApiTournamentsRouteWithChildren = ApiTournamentsRoute._addFileChildren(
+  ApiTournamentsRouteChildren,
+)
+
+interface ApiMatchesIdRouteChildren {
+  ApiMatchesIdActionRoute: typeof ApiMatchesIdActionRoute
+  ApiMatchesIdConfirmRoute: typeof ApiMatchesIdConfirmRoute
+  ApiMatchesIdScheduleRoute: typeof ApiMatchesIdScheduleRoute
+  ApiMatchesIdStartRoute: typeof ApiMatchesIdStartRoute
+}
+
+const ApiMatchesIdRouteChildren: ApiMatchesIdRouteChildren = {
+  ApiMatchesIdActionRoute: ApiMatchesIdActionRoute,
+  ApiMatchesIdConfirmRoute: ApiMatchesIdConfirmRoute,
+  ApiMatchesIdScheduleRoute: ApiMatchesIdScheduleRoute,
+  ApiMatchesIdStartRoute: ApiMatchesIdStartRoute,
+}
+
+const ApiMatchesIdRouteWithChildren = ApiMatchesIdRoute._addFileChildren(
+  ApiMatchesIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiDashboardRoute: ApiDashboardRoute,
+  ApiPlayersRoute: ApiPlayersRouteWithChildren,
+  ApiStatsRoute: ApiStatsRoute,
+  ApiTournamentsRoute: ApiTournamentsRouteWithChildren,
+  ApiAuthLoginRoute: ApiAuthLoginRoute,
+  ApiAuthSetupRoute: ApiAuthSetupRoute,
+  ApiAuthStatusRoute: ApiAuthStatusRoute,
+  ApiMatchesIdRoute: ApiMatchesIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
