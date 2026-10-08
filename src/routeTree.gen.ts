@@ -19,6 +19,8 @@ import { Route as ApiTournamentsRouteImport } from './routes/api/tournaments'
 import { Route as PlayersIndexRouteImport } from './routes/players.index'
 import { Route as PlayersIdRouteImport } from './routes/players.$id'
 import { Route as TournamentsIndexRouteImport } from './routes/tournaments.index'
+import { Route as TournamentsIdRouteImport } from './routes/tournaments.$id'
+import { Route as TournamentsNewRouteImport } from './routes/tournaments.new'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
 import { Route as ApiAuthSetupRouteImport } from './routes/api/auth/setup'
 import { Route as ApiAuthStatusRouteImport } from './routes/api/auth/status'
@@ -78,6 +80,16 @@ const PlayersIdRoute = PlayersIdRouteImport.update({
 const TournamentsIndexRoute = TournamentsIndexRouteImport.update({
   id: '/tournaments/',
   path: '/tournaments/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TournamentsIdRoute = TournamentsIdRouteImport.update({
+  id: '/tournaments/$id',
+  path: '/tournaments/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TournamentsNewRoute = TournamentsNewRouteImport.update({
+  id: '/tournaments/new',
+  path: '/tournaments/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthLoginRoute = ApiAuthLoginRouteImport.update({
@@ -140,6 +152,8 @@ export interface FileRoutesByFullPath {
   '/api/stats': typeof ApiStatsRoute
   '/api/tournaments': typeof ApiTournamentsRouteWithChildren
   '/players/$id': typeof PlayersIdRoute
+  '/tournaments/$id': typeof TournamentsIdRoute
+  '/tournaments/new': typeof TournamentsNewRoute
   '/players/': typeof PlayersIndexRoute
   '/tournaments/': typeof TournamentsIndexRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
@@ -162,6 +176,8 @@ export interface FileRoutesByTo {
   '/api/stats': typeof ApiStatsRoute
   '/api/tournaments': typeof ApiTournamentsRouteWithChildren
   '/players/$id': typeof PlayersIdRoute
+  '/tournaments/$id': typeof TournamentsIdRoute
+  '/tournaments/new': typeof TournamentsNewRoute
   '/players': typeof PlayersIndexRoute
   '/tournaments': typeof TournamentsIndexRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
@@ -185,6 +201,8 @@ export interface FileRoutesById {
   '/api/stats': typeof ApiStatsRoute
   '/api/tournaments': typeof ApiTournamentsRouteWithChildren
   '/players/$id': typeof PlayersIdRoute
+  '/tournaments/$id': typeof TournamentsIdRoute
+  '/tournaments/new': typeof TournamentsNewRoute
   '/players/': typeof PlayersIndexRoute
   '/tournaments/': typeof TournamentsIndexRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
@@ -209,6 +227,8 @@ export interface FileRouteTypes {
     | '/api/stats'
     | '/api/tournaments'
     | '/players/$id'
+    | '/tournaments/$id'
+    | '/tournaments/new'
     | '/players/'
     | '/tournaments/'
     | '/api/auth/login'
@@ -231,6 +251,8 @@ export interface FileRouteTypes {
     | '/api/stats'
     | '/api/tournaments'
     | '/players/$id'
+    | '/tournaments/$id'
+    | '/tournaments/new'
     | '/players'
     | '/tournaments'
     | '/api/auth/login'
@@ -253,6 +275,8 @@ export interface FileRouteTypes {
     | '/api/stats'
     | '/api/tournaments'
     | '/players/$id'
+    | '/tournaments/$id'
+    | '/tournaments/new'
     | '/players/'
     | '/tournaments/'
     | '/api/auth/login'
@@ -276,6 +300,8 @@ export interface RootRouteChildren {
   ApiStatsRoute: typeof ApiStatsRoute
   ApiTournamentsRoute: typeof ApiTournamentsRouteWithChildren
   PlayersIdRoute: typeof PlayersIdRoute
+  TournamentsIdRoute: typeof TournamentsIdRoute
+  TournamentsNewRoute: typeof TournamentsNewRoute
   PlayersIndexRoute: typeof PlayersIndexRoute
   TournamentsIndexRoute: typeof TournamentsIndexRoute
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
@@ -354,6 +380,20 @@ declare module '@tanstack/react-router' {
       path: '/tournaments'
       fullPath: '/tournaments/'
       preLoaderRoute: typeof TournamentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tournaments/$id': {
+      id: '/tournaments/$id'
+      path: '/tournaments/$id'
+      fullPath: '/tournaments/$id'
+      preLoaderRoute: typeof TournamentsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tournaments/new': {
+      id: '/tournaments/new'
+      path: '/tournaments/new'
+      fullPath: '/tournaments/new'
+      preLoaderRoute: typeof TournamentsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/login': {
@@ -480,6 +520,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStatsRoute: ApiStatsRoute,
   ApiTournamentsRoute: ApiTournamentsRouteWithChildren,
   PlayersIdRoute: PlayersIdRoute,
+  TournamentsIdRoute: TournamentsIdRoute,
+  TournamentsNewRoute: TournamentsNewRoute,
   PlayersIndexRoute: PlayersIndexRoute,
   TournamentsIndexRoute: TournamentsIndexRoute,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
