@@ -16,6 +16,7 @@ import { Route as ApiDashboardRouteImport } from './routes/api/dashboard'
 import { Route as ApiPlayersRouteImport } from './routes/api/players'
 import { Route as ApiStatsRouteImport } from './routes/api/stats'
 import { Route as ApiTournamentsRouteImport } from './routes/api/tournaments'
+import { Route as MatchesIdRouteImport } from './routes/matches.$id'
 import { Route as PlayersIndexRouteImport } from './routes/players.index'
 import { Route as PlayersIdRouteImport } from './routes/players.$id'
 import { Route as TournamentsIndexRouteImport } from './routes/tournaments.index'
@@ -65,6 +66,11 @@ const ApiStatsRoute = ApiStatsRouteImport.update({
 const ApiTournamentsRoute = ApiTournamentsRouteImport.update({
   id: '/api/tournaments',
   path: '/api/tournaments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MatchesIdRoute = MatchesIdRouteImport.update({
+  id: '/matches/$id',
+  path: '/matches/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlayersIndexRoute = PlayersIndexRouteImport.update({
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/api/players': typeof ApiPlayersRouteWithChildren
   '/api/stats': typeof ApiStatsRoute
   '/api/tournaments': typeof ApiTournamentsRouteWithChildren
+  '/matches/$id': typeof MatchesIdRoute
   '/players/$id': typeof PlayersIdRoute
   '/tournaments/$id': typeof TournamentsIdRoute
   '/tournaments/new': typeof TournamentsNewRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/api/players': typeof ApiPlayersRouteWithChildren
   '/api/stats': typeof ApiStatsRoute
   '/api/tournaments': typeof ApiTournamentsRouteWithChildren
+  '/matches/$id': typeof MatchesIdRoute
   '/players/$id': typeof PlayersIdRoute
   '/tournaments/$id': typeof TournamentsIdRoute
   '/tournaments/new': typeof TournamentsNewRoute
@@ -200,6 +208,7 @@ export interface FileRoutesById {
   '/api/players': typeof ApiPlayersRouteWithChildren
   '/api/stats': typeof ApiStatsRoute
   '/api/tournaments': typeof ApiTournamentsRouteWithChildren
+  '/matches/$id': typeof MatchesIdRoute
   '/players/$id': typeof PlayersIdRoute
   '/tournaments/$id': typeof TournamentsIdRoute
   '/tournaments/new': typeof TournamentsNewRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/api/players'
     | '/api/stats'
     | '/api/tournaments'
+    | '/matches/$id'
     | '/players/$id'
     | '/tournaments/$id'
     | '/tournaments/new'
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/api/players'
     | '/api/stats'
     | '/api/tournaments'
+    | '/matches/$id'
     | '/players/$id'
     | '/tournaments/$id'
     | '/tournaments/new'
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/api/players'
     | '/api/stats'
     | '/api/tournaments'
+    | '/matches/$id'
     | '/players/$id'
     | '/tournaments/$id'
     | '/tournaments/new'
@@ -299,6 +311,7 @@ export interface RootRouteChildren {
   ApiPlayersRoute: typeof ApiPlayersRouteWithChildren
   ApiStatsRoute: typeof ApiStatsRoute
   ApiTournamentsRoute: typeof ApiTournamentsRouteWithChildren
+  MatchesIdRoute: typeof MatchesIdRoute
   PlayersIdRoute: typeof PlayersIdRoute
   TournamentsIdRoute: typeof TournamentsIdRoute
   TournamentsNewRoute: typeof TournamentsNewRoute
@@ -359,6 +372,13 @@ declare module '@tanstack/react-router' {
       path: '/api/tournaments'
       fullPath: '/api/tournaments'
       preLoaderRoute: typeof ApiTournamentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/matches/$id': {
+      id: '/matches/$id'
+      path: '/matches/$id'
+      fullPath: '/matches/$id'
+      preLoaderRoute: typeof MatchesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/players/': {
@@ -519,6 +539,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPlayersRoute: ApiPlayersRouteWithChildren,
   ApiStatsRoute: ApiStatsRoute,
   ApiTournamentsRoute: ApiTournamentsRouteWithChildren,
+  MatchesIdRoute: MatchesIdRoute,
   PlayersIdRoute: PlayersIdRoute,
   TournamentsIdRoute: TournamentsIdRoute,
   TournamentsNewRoute: TournamentsNewRoute,
