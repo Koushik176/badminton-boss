@@ -49,7 +49,7 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
       "content-type": "application/json",
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
+    body: opts.body ? JSON.stringify(opts.body) : null,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

@@ -17,7 +17,7 @@ import { roundName, standings, type ResultRow } from "../engine/tournament";
 export interface CreateTournamentInput {
   name: string;
   date: string;
-  location?: string;
+  location?: string | undefined;
   type: "KNOCKOUT" | "LEAGUE";
   format: 1 | 3;
   teams: { name: string; players: [string, string] }[];
@@ -388,7 +388,7 @@ export interface PlayerStat {
   tournaments: number;
 }
 
-export async function playerStats(filter: { since?: string; tournamentId?: string } = {}) {
+export async function playerStats(filter: { since?: string | undefined; tournamentId?: string | undefined } = {}) {
   const players = await q(`SELECT id,name,nickname FROM players ORDER BY name`);
   const cond: string[] = ["m.status='COMPLETED'"];
   const params: unknown[] = [];
