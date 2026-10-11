@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS teams (
 CREATE TABLE IF NOT EXISTS matches (
   id VARCHAR(36) PRIMARY KEY,
   tournament_id VARCHAR(36) NOT NULL,
-  kind VARCHAR(10) NOT NULL,
+  kind VARCHAR(20) NOT NULL,
   round INT NOT NULL DEFAULT 1,
   round_name VARCHAR(40),
   slot_index INT NOT NULL DEFAULT 0,
@@ -82,5 +82,6 @@ CREATE TABLE IF NOT EXISTS app_setup (
   completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   CHECK (id = 1)
 );
+ALTER TABLE matches MODIFY kind VARCHAR(20) NOT NULL;
 INSERT IGNORE INTO app_setup (id, admin_user_id) SELECT 1, id FROM users ORDER BY created_at LIMIT 1;
 UPDATE matches SET kind='LEAGUE_FINAL' WHERE kind='FINAL'
