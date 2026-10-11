@@ -76,3 +76,11 @@ CREATE TABLE IF NOT EXISTS audit_log (
   detail TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS app_setup (
+  id TINYINT PRIMARY KEY,
+  admin_user_id VARCHAR(36) NOT NULL,
+  completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  CHECK (id = 1)
+);
+INSERT IGNORE INTO app_setup (id, admin_user_id) SELECT 1, id FROM users ORDER BY created_at LIMIT 1;
+UPDATE matches SET kind='LEAGUE_FINAL' WHERE kind='FINAL'
