@@ -17,7 +17,7 @@ export const pairingKey = (pairs: [string, string][]) =>
 /** Random doubles pairs. Locked pairs stay; avoids repeating `previousKey` when possible. */
 export function randomTeams(
   players: string[],
-  opts: { locked?: [string, string][]; previousKey?: string; rng?: Rng } = {},
+  opts: { locked?: [string, string][]; previousKey?: string | undefined; rng?: Rng } = {},
 ): [string, string][] {
   if (players.length < 2) throw new Error("At least 2 players are required.");
   if (players.length % 2 !== 0) throw new Error("Doubles teams require an even number of players.");
