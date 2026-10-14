@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "badminton-boss",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-10-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "DB_NAME": "badminton",
+  },
+  "observability": {
+    "enabled": true,
+  },
+}
