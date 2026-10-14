@@ -6,13 +6,51 @@ import { AppShell, Empty } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
+type LiveMatch = {
+  id: string;
+  tname: string;
+  round_name: string;
+  aname: string;
+  bname: string;
+  state?: { score?: { A?: number; B?: number } } | null;
+};
+
+type Tournament = {
+  id: string;
+  name: string;
+  date: string;
+  type: string;
+  location?: string | null;
+};
+
+type UpcomingMatch = {
+  id: string;
+  aname?: string | null;
+  bname?: string | null;
+  round_name: string;
+};
+
+type TopPlayer = {
+  id: string;
+  name: string;
+  wins: number;
+  winPct: number;
+  pd: number;
+};
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Dashboard — Smash Court" },
-      { name: "description", content: "Live matches, active tournaments and top badminton players at a glance." },
+      {
+        name: "description",
+        content: "Live matches, active tournaments and top badminton players at a glance.",
+      },
       { property: "og:title", content: "Dashboard — Smash Court" },
-      { property: "og:description", content: "Live matches, active tournaments and top badminton players at a glance." },
+      {
+        property: "og:description",
+        content: "Live matches, active tournaments and top badminton players at a glance.",
+      },
     ],
   }),
   component: Dashboard,
@@ -20,7 +58,10 @@ export const Route = createFileRoute("/")({
 
 function Dashboard() {
   const { isOrganizer } = useAuth();
-  const { data, isLoading, error } = useQuery({ queryKey: ["dashboard"], queryFn: () => api("/dashboard") });
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["dashboard"],
+    queryFn: () => api("/dashboard"),
+  });
   return (
     <AppShell
       title="Dashboard"
@@ -51,13 +92,15 @@ function Dashboard() {
               ["Completed events", data.counts.completed],
             ].map(([l, v]) => (
               <div key={l} className="rounded-xl border bg-card p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{l}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {l}
+                </p>
                 <p className="font-display text-4xl font-extrabold">{v}</p>
               </div>
             ))}
           </div>
 
-          {data.live.map((l: any) => (
+          {data.live.map((l: LiveMatch) => (
             <Link
               key={l.id}
               to="/matches/$id"
@@ -65,13 +108,17 @@ function Dashboard() {
               className="block rounded-2xl bg-court p-5 text-court-line shadow-lg transition hover:scale-[1.01]"
             >
               <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest">
-                <span className="rounded bg-destructive px-2 py-0.5 text-destructive-foreground">Live</span>
-                <span>{l.tname} · {l.round_name}</span>
+                <span className="rounded bg-destructive px-2 py-0.5 text-destructive-foreground">
+                  Live
+                </span>
+                <span>
+                  {l.tname} · {l.round_name}
+                </span>
               </div>
               <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
                 <p className="font-display text-xl font-bold">{l.aname}</p>
                 <p className="font-display text-5xl font-extrabold tabular-nums text-accent">
-                  {l.state?.score.A ?? 0}–{l.state?.score.B ?? 0}
+                  {l.state?.score?.A ?? 0}–{l.state?.score?.B ?? 0}
                 </p>
                 <p className="text-right font-display text-xl font-bold">{l.bname}</p>
               </div>
@@ -86,12 +133,16 @@ function Dashboard() {
                 <Empty title="No active tournament">Create one to get started.</Empty>
               ) : (
                 <div className="space-y-2">
-                  {data.active.map((t: any) => (
-                    <div key={t.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
+                  {data.active.map((t: Tournament) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between rounded-xl border bg-card p-4"
+                    >
                       <div>
                         <p className="font-semibold">{t.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {t.date} · {t.type === "LEAGUE" ? "League" : "Knockout"} {t.location && `· ${t.location}`}
+                          {t.date} · {t.type === "LEAGUE" ? "League" : "Knockout"}{" "}
+                          {t.location && `· ${t.location}`}
                         </p>
                       </div>
                       <Button asChild size="sm" variant="secondary">
@@ -108,9 +159,13 @@ function Dashboard() {
                 <Empty title="No upcoming matches" />
               ) : (
                 <ul className="divide-y rounded-xl border bg-card">
-                  {data.upcoming.map((m: any) => (
+                  {data.upcoming.map((m: UpcomingMatch) => (
                     <li key={m.id}>
-                      <Link to="/matches/$id" params={{ id: m.id }} className="flex justify-between p-3 hover:bg-muted">
+                      <Link
+                        to="/matches/$id"
+                        params={{ id: m.id }}
+                        className="flex justify-between p-3 hover:bg-muted"
+                      >
                         <span className="font-medium">
                           {m.aname ?? "TBD"} vs {m.bname ?? "TBD"}
                         </span>
@@ -127,10 +182,16 @@ function Dashboard() {
                 <Empty title="No results yet" />
               ) : (
                 <ol className="divide-y rounded-xl border bg-card">
-                  {data.top.map((p: any, i: number) => (
+                  {data.top.map((p: TopPlayer, i: number) => (
                     <li key={p.id}>
-                      <Link to="/players/$id" params={{ id: p.id }} className="flex items-center gap-3 p-3 hover:bg-muted">
-                        <span className="font-display text-2xl font-extrabold text-primary">{i + 1}</span>
+                      <Link
+                        to="/players/$id"
+                        params={{ id: p.id }}
+                        className="flex items-center gap-3 p-3 hover:bg-muted"
+                      >
+                        <span className="font-display text-2xl font-extrabold text-primary">
+                          {i + 1}
+                        </span>
                         <span className="flex-1 font-medium">{p.name}</span>
                         <span className="text-sm text-muted-foreground">
                           {p.wins}W · {p.winPct}% · {p.pd > 0 ? "+" : ""}

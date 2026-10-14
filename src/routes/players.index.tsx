@@ -13,9 +13,15 @@ export const Route = createFileRoute("/players/")({
   head: () => ({
     meta: [
       { title: "Players — Smash Court" },
-      { name: "description", content: "All badminton players with wins, win rate and point difference." },
+      {
+        name: "description",
+        content: "All badminton players with wins, win rate and point difference.",
+      },
       { property: "og:title", content: "Players — Smash Court" },
-      { property: "og:description", content: "All badminton players with wins, win rate and point difference." },
+      {
+        property: "og:description",
+        content: "All badminton players with wins, win rate and point difference.",
+      },
     ],
   }),
   component: Players,
@@ -24,7 +30,21 @@ export const Route = createFileRoute("/players/")({
 function Players() {
   const { isOrganizer } = useAuth();
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ["players"], queryFn: () => api<any[]>("/players") });
+  const { data, isLoading } = useQuery({
+    queryKey: ["players"],
+    queryFn: () =>
+      api<
+        {
+          id: string;
+          name: string;
+          played: number;
+          titles: number;
+          wins: number;
+          winPct: number;
+          pd: number;
+        }[]
+      >("/players"),
+  });
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
 
@@ -46,11 +66,21 @@ function Players() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search players" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input
+            className="pl-9"
+            placeholder="Search players"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
         {isOrganizer && (
           <form onSubmit={add} className="flex gap-2">
-            <Input placeholder="New player name" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Input
+              placeholder="New player name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
             <Button type="submit">Add</Button>
           </form>
         )}
@@ -62,7 +92,12 @@ function Players() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((p) => (
-            <Link key={p.id} to="/players/$id" params={{ id: p.id }} className="rounded-xl border bg-card p-4 transition hover:border-primary">
+            <Link
+              key={p.id}
+              to="/players/$id"
+              params={{ id: p.id }}
+              className="rounded-xl border bg-card p-4 transition hover:border-primary"
+            >
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary font-display text-xl font-bold text-primary-foreground">
                   {p.name[0]}
@@ -75,9 +110,21 @@ function Players() {
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-3 text-center text-sm">
-                <div><p className="font-display text-xl font-bold">{p.wins}</p><p className="text-xs text-muted-foreground">Wins</p></div>
-                <div><p className="font-display text-xl font-bold">{p.winPct}%</p><p className="text-xs text-muted-foreground">Win rate</p></div>
-                <div><p className="font-display text-xl font-bold">{p.pd > 0 ? "+" : ""}{p.pd}</p><p className="text-xs text-muted-foreground">Pt diff</p></div>
+                <div>
+                  <p className="font-display text-xl font-bold">{p.wins}</p>
+                  <p className="text-xs text-muted-foreground">Wins</p>
+                </div>
+                <div>
+                  <p className="font-display text-xl font-bold">{p.winPct}%</p>
+                  <p className="text-xs text-muted-foreground">Win rate</p>
+                </div>
+                <div>
+                  <p className="font-display text-xl font-bold">
+                    {p.pd > 0 ? "+" : ""}
+                    {p.pd}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Pt diff</p>
+                </div>
               </div>
             </Link>
           ))}

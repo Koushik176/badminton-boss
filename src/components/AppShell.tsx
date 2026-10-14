@@ -21,7 +21,15 @@ export function Shuttle({ className = "" }: { className?: string }) {
   );
 }
 
-export function AppShell({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
+export function AppShell({
+  title,
+  actions,
+  children,
+}: {
+  title: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
   const { isOrganizer, email } = useAuth();
   const navigate = useNavigate();
   return (
@@ -29,7 +37,9 @@ export function AppShell({ title, actions, children }: { title: string; actions?
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-sidebar p-4 text-sidebar-foreground md:flex">
         <Link to="/" className="mb-8 flex items-center gap-2 px-2">
           <Shuttle className="h-8 w-8 text-sidebar-primary" />
-          <span className="font-display text-2xl font-extrabold uppercase tracking-wide">Smash Court</span>
+          <span className="font-display text-2xl font-extrabold uppercase tracking-wide">
+            Smash Court
+          </span>
         </Link>
         <nav className="flex flex-1 flex-col gap-1">
           {NAV.map((n) => (
@@ -57,7 +67,10 @@ export function AppShell({ title, actions, children }: { title: string; actions?
             </button>
           </div>
         ) : (
-          <Link to="/login" className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-sidebar-accent">
+          <Link
+            to="/login"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-sidebar-accent"
+          >
             <LogIn className="h-4 w-4" /> Organizer sign in
           </Link>
         )}
@@ -66,7 +79,9 @@ export function AppShell({ title, actions, children }: { title: string; actions?
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b bg-background/90 px-4 py-3 backdrop-blur md:px-8">
           <div className="flex items-center gap-2">
             <Shuttle className="h-7 w-7 text-primary md:hidden" />
-            <h1 className="font-display text-2xl font-bold uppercase tracking-wide md:text-3xl">{title}</h1>
+            <h1 className="font-display text-2xl font-bold uppercase tracking-wide md:text-3xl">
+              {title}
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             {actions}
@@ -115,7 +130,9 @@ export function StatusBadge({ status }: { status: string }) {
     BYE: "bg-muted text-muted-foreground",
   };
   return (
-    <span className={`rounded-md px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${map[status] ?? "bg-muted"}`}>
+    <span
+      className={`rounded-md px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${map[status] ?? "bg-muted"}`}
+    >
       {status}
     </span>
   );
