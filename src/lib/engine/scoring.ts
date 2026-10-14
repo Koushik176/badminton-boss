@@ -208,12 +208,29 @@ export function replay(initial: MatchState, actions: MatchAction[]): MatchState 
   return actions.reduce(applyAction, initial);
 }
 
+/**
+ * Undo = remove exactly the most recent RALLY_WON event.
+ * Later non-scoring events (pause/resume, next-game start) are re-applied in order;
+ * any that become invalid once the rally is gone are dropped and reported, never silently.
+ * Example: undoing a game-winning rally drops the following GAME_STARTED (the game is live again),
+ * while a PAUSE/RESUME pair after the rally is preserved.
+ */
 export function undoLast(initial: MatchState, actions: MatchAction[]) {
-  const idx = [...actions].reverse().findIndex((a) => a.type === "RALLY_WON");
-  if (idx === -1) return { state: replay(initial, actions), actions };
-  const cut = actions.length - 1 - idx;
-  const kept = actions.slice(0, cut);
-  return { state: replay(initial, kept), actions: kept };
+  const idx = actions.map((a) => a.type).lastIndexOf("RALLY_WON");
+  if (idx === -1) return { state: replay(initial, actions), actions, removed: null, dropped: [] as MatchAction[] };
+  let state = replay(initial, actions.slice(0, idx));
+  const kept = actions.slice(0, idx);
+  const dropped: MatchAction[] = [];
+  for (const a of actions.slice(idx + 1)) {
+    try {
+      state = applyAction(state, a);
+      kept.push(a);
+    } catch (e) {
+      if (!(e instanceof EngineError)) throw e;
+      dropped.push(a);
+    }
+  }
+  return { state, actions: kept, removed: actions[idx]!, dropped };
 }
 
 /** Role of a player in the current state, for court rendering. */

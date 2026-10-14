@@ -1,4 +1,4 @@
-import { q, exec, uid } from "./db";
+import { q, exec, uid, transaction, type Stmt } from "./db";
 import { HttpError } from "./http";
 import {
   applyAction,
@@ -29,64 +29,64 @@ export async function createTournament(input: CreateTournamentInput) {
   const n = input.teams.length;
   if (n < 2) throw new HttpError(400, "At least 2 teams are required to start a tournament.");
   const ids = input.teams.flatMap((t) => t.players);
-  if (new Set(ids).size !== ids.length) throw new HttpError(400, "A player cannot be in two teams.");
+  if (ids.length !== n * 2) throw new HttpError(400, "Each doubles team must contain exactly 2 players.");
+  if (new Set(ids).size !== ids.length) throw new HttpError(400, "This player is already assigned to another team.");
+  const names = input.teams.map((t) => t.name.trim().toLowerCase());
+  if (new Set(names).size !== n) throw new HttpError(400, "Team names must be unique within the tournament.");
+  const isIdx = (x: unknown): x is number => Number.isInteger(x) && (x as number) >= 0 && (x as number) < n;
+  validateFixtures(input, n, isIdx);
   const known = await q<{ id: string }>(
     `SELECT id FROM players WHERE id IN (${ids.map(() => "?").join(",")})`,
     ids,
   );
   if (known.length !== ids.length) throw new HttpError(400, "Unknown player selected.");
 
+  // Everything validated — build all statements, then commit them in one transaction.
+  const stmts: Stmt[] = [];
   const tid = uid();
-  await exec(`INSERT INTO tournaments (id,name,date,location,type,format,status) VALUES (?,?,?,?,?,?, 'LIVE')`, [
-    tid,
-    input.name,
-    input.date,
-    input.location ?? null,
-    input.type,
-    input.type === "LEAGUE" ? input.format : input.format,
+  stmts.push([
+    `INSERT INTO tournaments (id,name,date,location,type,format,status) VALUES (?,?,?,?,?,?, 'LIVE')`,
+    [tid, input.name, input.date, input.location ?? null, input.type, input.format],
   ]);
   const teamIds = input.teams.map(() => uid());
-  for (let i = 0; i < n; i++) {
-    const t = input.teams[i]!;
-    await exec(`INSERT INTO teams (id,tournament_id,name,player1_id,player2_id) VALUES (?,?,?,?,?)`, [
-      teamIds[i],
-      tid,
-      t.name,
-      t.players[0],
-      t.players[1],
-    ]);
-  }
+  input.teams.forEach((t, i) =>
+    stmts.push([
+      `INSERT INTO teams (id,tournament_id,name,player1_id,player2_id) VALUES (?,?,?,?,?)`,
+      [teamIds[i], tid, t.name, t.players[0], t.players[1]],
+    ]),
+  );
 
-  const used = input.fixtures.flatMap((f) => f.filter((x): x is number => x !== null));
   if (input.type === "LEAGUE") {
-    const keys = new Set(input.fixtures.map(([a, b]) => [a, b].sort().join("-")));
-    if (keys.size !== (n * (n - 1)) / 2 || input.fixtures.some(([a, b]) => b === null || a === b))
-      throw new HttpError(400, "League fixtures must contain every pairing once.");
     let order = 1;
-    for (const [a, b] of input.fixtures) {
-      await exec(
+    for (const [a, b] of input.fixtures)
+      stmts.push([
         `INSERT INTO matches (id,tournament_id,kind,round,round_name,team_a_id,team_b_id,status,play_order,format) VALUES (?,?,'LEAGUE',1,'League',?,?,'UPCOMING',?,?)`,
         [uid(), tid, teamIds[a], teamIds[b!], order++, input.format],
-      );
-    }
+      ]);
   } else {
     const size = input.fixtures.length * 2;
-    if ((size & (size - 1)) !== 0 || used.length !== n || new Set(used).size !== n)
-      throw new HttpError(400, "Invalid knockout bracket.");
     const rounds = Math.log2(size);
-    // create from final backwards so feeds_into ids exist
     const byRound: string[][] = [];
     for (let r = rounds; r >= 1; r--) {
       byRound[r] = [];
       for (let i = 0; i < size / 2 ** r; i++) byRound[r]![i] = uid();
     }
+    // Teams advancing via bye are pre-filled into their next match.
+    const prefill = new Map<string, { A?: string; B?: string }>();
+    input.fixtures.forEach(([fa, fb], i) => {
+      if (fb === null && rounds > 1) {
+        const id = byRound[2]![Math.floor(i / 2)]!;
+        prefill.set(id, { ...prefill.get(id), [i % 2 === 0 ? "A" : "B"]: teamIds[fa] });
+      }
+    });
     let order = 1;
     for (let r = 1; r <= rounds; r++) {
       for (let i = 0; i < size / 2 ** r; i++) {
+        const id = byRound[r]![i]!;
         const feeds = r < rounds ? byRound[r + 1]![Math.floor(i / 2)]! : null;
         const slot = i % 2 === 0 ? "A" : "B";
-        let a: string | null = null,
-          b: string | null = null,
+        let a: string | null = prefill.get(id)?.A ?? null,
+          b: string | null = prefill.get(id)?.B ?? null,
           bye = false;
         if (r === 1) {
           const [fa, fb] = input.fixtures[i]!;
@@ -94,31 +94,48 @@ export async function createTournament(input: CreateTournamentInput) {
           b = fb === null ? null : teamIds[fb]!;
           bye = fb === null;
         }
-        await exec(
+        stmts.push([
           `INSERT INTO matches (id,tournament_id,kind,round,round_name,slot_index,team_a_id,team_b_id,winner_team_id,status,play_order,feeds_into_match_id,feeds_slot,format)
            VALUES (?,?,'KNOCKOUT',?,?,?,?,?,?,?,?,?,?,?)`,
-          [
-            byRound[r]![i],
-            tid,
-            r,
-            roundName(r, rounds),
-            i,
-            a,
-            b,
-            bye ? a : null,
-            bye ? "BYE" : "UPCOMING",
-            bye ? 0 : order++,
-            feeds,
-            feeds ? slot : null,
-            input.format,
-          ],
-        );
-        if (bye && feeds)
-          await exec(`UPDATE matches SET ${slot === "A" ? "team_a_id" : "team_b_id"}=? WHERE id=?`, [a, feeds]);
+          [id, tid, r, roundName(r, rounds), i, a, b, bye ? a : null, bye ? "BYE" : "UPCOMING", bye ? 0 : order++, feeds, feeds ? slot : null, input.format],
+        ]);
       }
     }
   }
+  await transaction(stmts);
   return tid;
+}
+
+/** Backend fixture validation — never trusts the client. Throws before any write. */
+export function validateFixtures(
+  input: Pick<CreateTournamentInput, "type" | "fixtures">,
+  n: number,
+  isIdx: (x: unknown) => x is number,
+) {
+  if (input.type === "LEAGUE") {
+    const bad = "League fixtures must contain every pairing of the teams exactly once.";
+    if (input.fixtures.length !== (n * (n - 1)) / 2) throw new HttpError(400, bad);
+    const keys = new Set<string>();
+    for (const [a, b] of input.fixtures) {
+      if (!isIdx(a) || !isIdx(b)) throw new HttpError(400, "A fixture refers to a team that does not exist.");
+      if (a === b) throw new HttpError(400, "A team cannot play itself.");
+      const k = a < b ? `${a}-${b}` : `${b}-${a}`;
+      if (keys.has(k)) throw new HttpError(400, bad);
+      keys.add(k);
+    }
+  } else {
+    const size = input.fixtures.length * 2;
+    const bad = "Invalid knockout bracket.";
+    if (size < 2 || (size & (size - 1)) !== 0 || size >= n * 2) throw new HttpError(400, bad);
+    const used: number[] = [];
+    for (const [a, b] of input.fixtures) {
+      if (!isIdx(a) || (b !== null && !isIdx(b))) throw new HttpError(400, "A fixture refers to a team that does not exist.");
+      if (a === b) throw new HttpError(400, "A team cannot play itself.");
+      used.push(a);
+      if (b !== null) used.push(b);
+    }
+    if (used.length !== n || new Set(used).size !== n) throw new HttpError(400, "Every team must appear exactly once in the bracket.");
+  }
 }
 
 export async function getTournament(id: string) {
@@ -176,14 +193,14 @@ async function advance(m: any, winner: string, loser: string) {
         m.feeds_into_match_id,
       ]);
     else await finishTournament(m.tournament_id, winner, loser);
-  } else if (m.kind === "FINAL") {
+  } else if (m.kind === "LEAGUE_FINAL") {
     await finishTournament(m.tournament_id, winner, loser);
   } else {
     const [{ c }] = await q(
       `SELECT COUNT(*) c FROM matches WHERE tournament_id=? AND kind='LEAGUE' AND status<>'COMPLETED'`,
       [m.tournament_id],
     );
-    const [{ f }] = await q(`SELECT COUNT(*) f FROM matches WHERE tournament_id=? AND kind='FINAL'`, [
+    const [{ f }] = await q(`SELECT COUNT(*) f FROM matches WHERE tournament_id=? AND kind='LEAGUE_FINAL'`, [
       m.tournament_id,
     ]);
     if (Number(c) === 0 && Number(f) === 0) {
@@ -191,7 +208,7 @@ async function advance(m: any, winner: string, loser: string) {
       if (table.length < 2) return;
       const [{ mx }] = await q(`SELECT MAX(play_order) mx FROM matches WHERE tournament_id=?`, [m.tournament_id]);
       await exec(
-        `INSERT INTO matches (id,tournament_id,kind,round,round_name,team_a_id,team_b_id,status,play_order,format) VALUES (?,?,'FINAL',2,'League Final',?,?,'UPCOMING',?,1)`,
+        `INSERT INTO matches (id,tournament_id,kind,round,round_name,team_a_id,team_b_id,status,play_order,format) VALUES (?,?,'LEAGUE_FINAL',2,'League Final',?,?,'UPCOMING',?,1)`,
         [uid(), m.tournament_id, table[0]!.team, table[1]!.team, Number(mx) + 1],
       );
     }
@@ -273,7 +290,7 @@ export async function startMatch(id: string, input: StartInput) {
   const initial = createMatch({
     teamA: [A.player1_id, A.player2_id],
     teamB: [B.player1_id, B.player2_id],
-    format: m.kind === "FINAL" ? 1 : (Number(m.format) as 1 | 3),
+    format: m.kind === "LEAGUE_FINAL" ? 1 : (Number(m.format) as 1 | 3),
     teamASide: input.teamASide,
   });
   const action: MatchAction = {
@@ -305,28 +322,31 @@ export async function matchAction(id: string, action: MatchAction | { type: "UND
   const initial = JSON.parse(m.initial_json) as MatchState;
   let actions: MatchAction[] = JSON.parse(m.actions_json);
   let state: MatchState;
+  let logged: unknown = action;
   if (action.type === "UNDO") {
     const r = undoLast(initial, actions);
-    if (r.actions.length === actions.length) throw new HttpError(400, "Nothing to undo.");
+    if (!r.removed) throw new HttpError(400, "Nothing to undo.");
     actions = r.actions;
     state = r.state;
+    logged = { type: "UNDO", removed: r.removed, dropped: r.dropped };
   } else {
     state = applyAction(replay(initial, actions), action);
     actions = [...actions, action];
   }
+  // seq is a monotonic write counter (optimistic lock), independent of action count.
+  const next = seq + 1;
   const ok = await exec(
     `UPDATE matches SET actions_json=?, state_json=?, seq=?, updated_at=NOW() WHERE id=? AND seq=?`,
-    [JSON.stringify(actions), JSON.stringify(state), actions.length, id, seq],
+    [JSON.stringify(actions), JSON.stringify(state), next, id, seq],
   );
   if (!ok) throw new HttpError(409, "The score changed on another device. Reloading.");
-  if (action.type === "UNDO") await exec(`DELETE FROM match_events WHERE match_id=? AND seq>?`, [id, actions.length]);
-  else
-    await exec(`INSERT INTO match_events (match_id,seq,action_json,state_json) VALUES (?,?,?,?)`, [
-      id,
-      actions.length,
-      JSON.stringify(action),
-      JSON.stringify(state),
-    ]);
+  // match_events is an append-only audit trail; undo is recorded, not erased.
+  await exec(`INSERT INTO match_events (match_id,seq,action_json,state_json) VALUES (?,?,?,?)`, [
+    id,
+    next,
+    JSON.stringify(logged),
+    JSON.stringify(state),
+  ]);
   return getMatch(id);
 }
 

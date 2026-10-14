@@ -245,7 +245,7 @@ function Setup({ id, match, teamA, teamB, onDone }: { id: string; match: any; te
   return (
     <div className="mt-6 space-y-6 rounded-2xl border bg-card p-6">
       <div className="text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{match.round_name} · Best of {match.kind === "FINAL" ? 1 : match.format}</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{match.round_name} · Best of {match.kind === "LEAGUE_FINAL" ? 1 : match.format}</p>
         <p className="font-display text-3xl font-extrabold">{teamA.name} <span className="text-muted-foreground">vs</span> {teamB.name}</p>
       </div>
       <section className="text-center">
