@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "badminton-boss",
-  "main": "src/server.ts",
+  "main": "@tanstack/react-start/server-entry",
   "compatibility_date": "2026-10-14",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
