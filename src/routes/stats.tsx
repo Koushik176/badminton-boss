@@ -42,7 +42,19 @@ function Stats() {
   const [sort, setSort] = useState<"wins" | "winPct" | "pd" | "titles">("wins");
   const { data = [] } = useQuery({
     queryKey: ["stats", period],
-    queryFn: () => api<any[]>(`/stats${since(period) ? `?since=${since(period)}` : ""}`),
+    queryFn: () =>
+      api<
+        {
+          id: string;
+          name: string;
+          played: number;
+          wins: number;
+          losses: number;
+          winPct: number;
+          pd: number;
+          titles: number;
+        }[]
+      >(`/stats${since(period) ? `?since=${since(period)}` : ""}`),
   });
   const rows = data.filter((r) => r.played > 0).sort((a, b) => b[sort] - a[sort] || b.pd - a.pd);
   return (

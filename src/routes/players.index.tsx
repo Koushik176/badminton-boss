@@ -32,7 +32,18 @@ function Players() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["players"],
-    queryFn: () => api<any[]>("/players"),
+    queryFn: () =>
+      api<
+        {
+          id: string;
+          name: string;
+          played: number;
+          titles: number;
+          wins: number;
+          winPct: number;
+          pd: number;
+        }[]
+      >("/players"),
   });
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");

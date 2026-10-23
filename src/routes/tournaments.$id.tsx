@@ -38,102 +38,6 @@ export const Route = createFileRoute("/tournaments/$id")({
   component: TournamentPage,
 });
 
-function AddTeam({
-  tournamentId,
-  usedPlayers,
-  onDone,
-}: {
-  tournamentId: string;
-  usedPlayers: Set<string>;
-  onDone: () => void;
-}) {
-  const { data: players = [] } = useQuery({
-    queryKey: ["players"],
-    queryFn: () => api<any[]>("/players"),
-  });
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [p1, setP1] = useState("");
-  const [p2, setP2] = useState("");
-  const [busy, setBusy] = useState(false);
-  const free = players.filter((p) => !usedPlayers.has(p.id));
-  const sel = "h-9 rounded-md border bg-background px-2 text-sm";
-  async function submit() {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await api(`/tournaments/${tournamentId}/teams`, {
-        body: { name: name.trim(), players: [p1, p2] },
-      });
-      toast.success("Team added and fixtures created");
-      setName("");
-      setP1("");
-      setP2("");
-      setOpen(false);
-      onDone();
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  if (!open)
-    return (
-      <Button size="sm" className="mb-4" onClick={() => setOpen(true)}>
-        <Plus className="h-4 w-4" /> Add team
-      </Button>
-    );
-  return (
-    <div className="mb-4 space-y-3 rounded-xl border bg-card p-4">
-      <Input
-        placeholder="Team name"
-        value={name}
-        maxLength={100}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <div className="grid gap-2 sm:grid-cols-2">
-        {[
-          [p1, setP1, p2],
-          [p2, setP2, p1],
-        ].map(([v, set, other], i) => (
-          <select
-            key={i}
-            className={sel}
-            value={v as string}
-            onChange={(e) => (set as (x: string) => void)(e.target.value)}
-            aria-label={`Player ${i + 1}`}
-          >
-            <option value="">Player {i + 1}</option>
-            {free
-              .filter((p) => p.id !== other)
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </select>
-        ))}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        New fixtures against every existing team are added and the upcoming matches are rebalanced.
-        Completed and live matches are not changed.
-      </p>
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          disabled={busy || !name.trim() || !p1 || !p2 || p1 === p2}
-          onClick={submit}
-        >
-          Add team
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
-          Cancel
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function TournamentPage() {
   const { id } = Route.useParams();
   const { isOrganizer } = useAuth();
@@ -156,14 +60,12 @@ function TournamentPage() {
     );
 
   const { tournament: t, teams, matches, standings } = data;
-  const team = Object.fromEntries(teams.map((x: any) => [x.id, x]));
+  const team = Object.fromEntries(teams.map((x: Team) => [x.id, x]));
   const tn = (tid: string | null) => (tid ? team[tid]?.name : "TBD");
   const sched = matches.filter((m: any) => m.status !== "BYE");
   const live = sched.find((m: any) => m.status === "LIVE");
   const upcoming = sched.filter((m: any) => m.status === "UPCOMING" || m.status === "SKIPPED");
-  const nextId = upcoming.find(
-    (m: any) => m.status === "UPCOMING" && m.team_a_id && m.team_b_id,
-  )?.id;
+  const nextId = upcoming.find((m: any) => m.status === "UPCOMING" && m.team_a_id && m.team_b_id)?.id;
 
   async function op(mid: string, o: string) {
     try {
@@ -173,29 +75,7 @@ function TournamentPage() {
       toast.error((e as Error).message);
     }
   }
-  const canAddTeam =
-    t.type === "LEAGUE" &&
-    t.status === "LIVE" &&
-    !matches.some((m: any) => m.kind === "LEAGUE_FINAL");
-  async function rebalance() {
-    try {
-      await api(`/tournaments/${id}/rebalance`, { body: {} });
-      qc.invalidateQueries({ queryKey: ["tournament", id] });
-      toast.success("Upcoming matches rebalanced");
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  }
-  const label = (m: any) =>
-    m.status === "LIVE"
-      ? "Live"
-      : m.id === nextId
-        ? "Up next"
-        : m.status === "COMPLETED"
-          ? "Completed"
-          : m.status === "SKIPPED"
-            ? "Skipped"
-            : "Upcoming";
+  const label = (m: any) => (m.status === "LIVE" ? "Live" : m.id === nextId ? "Up next" : m.status === "COMPLETED" ? "Completed" : m.status === "SKIPPED" ? "Skipped" : "Upcoming");
 
   return (
     <AppShell title={t.name}>
@@ -250,7 +130,7 @@ function TournamentPage() {
             </div>
           )}
           <ol className="space-y-2">
-            {sched.map((m: any) => {
+            {sched.map((m: Match) => {
               const editable = isOrganizer && (m.status === "UPCOMING" || m.status === "SKIPPED");
               return (
                 <li
@@ -287,11 +167,7 @@ function TournamentPage() {
                         {tn(m.team_b_id)}
                       </span>
                     </Link>
-                    {m.status === "COMPLETED" && (
-                      <span className="font-display tabular-nums">
-                        {m.games.map((g: any) => `${g.A}-${g.B}`).join(", ")}
-                      </span>
-                    )}
+                    {m.status === "COMPLETED" && <span className="font-display tabular-nums">{m.games.map((g: any) => `${g.A}-${g.B}`).join(", ")}</span>}
                     {editable && (
                       <div className="flex gap-1">
                         {m.team_a_id && m.team_b_id && (
@@ -366,7 +242,7 @@ function TournamentPage() {
                 </tr>
               </thead>
               <tbody>
-                {standings.map((r: any, i: number) => (
+                {standings.map((r: Standing, i: number) => (
                   <tr key={r.team} className={`border-t ${i < 2 ? "bg-accent/20" : ""}`}>
                     <td className="p-3 font-display font-bold">{i + 1}</td>
                     <td className="p-3 font-medium">{tn(r.team)}</td>
@@ -385,37 +261,24 @@ function TournamentPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Top 2 play the League Final (Best of 1). The final does not change this table. PD counts
-            each game's margin, except a deuce game (loser on 20+), which counts as ±1.
-          </p>
+          <p className="mt-2 text-xs text-muted-foreground">Top 2 play the League Final (Best of 1). The final does not change this table.</p>
         </TabsContent>
 
         <TabsContent value="bracket">
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {[...new Set(matches.map((m: any) => m.round as number))].sort().map((r) => (
+            {[...new Set(matches.map((m: Match) => m.round))].sort().map((r) => (
               <div key={r as number} className="flex min-w-56 flex-col justify-around gap-3">
-                <p className="text-center text-xs font-bold uppercase text-muted-foreground">
-                  {matches.find((m: any) => m.round === r)?.round_name}
-                </p>
-                {matches
-                  .filter((m: any) => m.round === r)
-                  .sort((a: any, b: any) => a.slot_index - b.slot_index)
-                  .map((m: any) => (
-                    <div key={m.id} className="rounded-lg border bg-card text-sm">
-                      {[m.team_a_id, m.team_b_id].map((tid, k) => (
-                        <div
-                          key={k}
-                          className={`flex justify-between px-3 py-2 ${k ? "border-t" : ""} ${tid && tid === m.winner_team_id ? "font-bold text-primary" : ""}`}
-                        >
-                          <span>{m.status === "BYE" && k === 1 ? "BYE" : tn(tid)}</span>
-                          <span className="tabular-nums">
-                            {m.games.map((g: any) => (k ? g.B : g.A)).join(" ")}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
+                <p className="text-center text-xs font-bold uppercase text-muted-foreground">{matches.find((m: any) => m.round === r)?.round_name}</p>
+                {matches.filter((m: any) => m.round === r).sort((a: any, b: any) => a.slot_index - b.slot_index).map((m: any) => (
+                  <div key={m.id} className="rounded-lg border bg-card text-sm">
+                    {[m.team_a_id, m.team_b_id].map((tid, k) => (
+                      <div key={k} className={`flex justify-between px-3 py-2 ${k ? "border-t" : ""} ${tid && tid === m.winner_team_id ? "font-bold text-primary" : ""}`}>
+                        <span>{m.status === "BYE" && k === 1 ? "BYE" : tn(tid)}</span>
+                        <span className="tabular-nums">{m.games.map((g: any) => (k ? g.B : g.A)).join(" ")}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
@@ -446,7 +309,7 @@ function TournamentPage() {
               </p>
             ))}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {teams.map((x: any) => (
+            {teams.map((x: Team) => (
               <div key={x.id} className="rounded-xl border bg-card p-4">
                 <p className="font-display text-lg font-bold">{x.name}</p>
                 <p className="text-sm text-muted-foreground">
@@ -464,24 +327,14 @@ function TournamentPage() {
         </TabsContent>
 
         <TabsContent value="results">
-          {matches.filter((m: any) => m.status === "COMPLETED").length === 0 ? (
-            <Empty title="No results yet" />
-          ) : (
+          {matches.filter((m: any) => m.status === "COMPLETED").length === 0 ? <Empty title="No results yet" /> : (
             <ul className="divide-y rounded-xl border bg-card">
-              {matches
-                .filter((m: any) => m.status === "COMPLETED")
-                .map((m: any) => (
-                  <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-                    <span>
-                      <span className="text-xs text-muted-foreground">{m.round_name} · </span>
-                      <b>{tn(m.winner_team_id)}</b> beat{" "}
-                      {tn(m.winner_team_id === m.team_a_id ? m.team_b_id : m.team_a_id)}
-                    </span>
-                    <span className="font-display tabular-nums">
-                      {m.games.map((g: any) => `${g.A}-${g.B}`).join(", ")}
-                    </span>
-                  </li>
-                ))}
+              {matches.filter((m: any) => m.status === "COMPLETED").map((m: any) => (
+                <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                  <span><span className="text-xs text-muted-foreground">{m.round_name} · </span><b>{tn(m.winner_team_id)}</b> beat {tn(m.winner_team_id === m.team_a_id ? m.team_b_id : m.team_a_id)}</span>
+                  <span className="font-display tabular-nums">{m.games.map((g: any) => `${g.A}-${g.B}`).join(", ")}</span>
+                </li>
+              ))}
             </ul>
           )}
         </TabsContent>

@@ -6,6 +6,38 @@ import { AppShell, Empty } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
+type LiveMatch = {
+  id: string;
+  tname: string;
+  round_name: string;
+  aname: string;
+  bname: string;
+  state?: { score?: { A?: number; B?: number } } | null;
+};
+
+type Tournament = {
+  id: string;
+  name: string;
+  date: string;
+  type: string;
+  location?: string | null;
+};
+
+type UpcomingMatch = {
+  id: string;
+  aname?: string | null;
+  bname?: string | null;
+  round_name: string;
+};
+
+type TopPlayer = {
+  id: string;
+  name: string;
+  wins: number;
+  winPct: number;
+  pd: number;
+};
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -68,7 +100,7 @@ function Dashboard() {
             ))}
           </div>
 
-          {data.live.map((l: any) => (
+          {data.live.map((l: LiveMatch) => (
             <Link
               key={l.id}
               to="/matches/$id"
@@ -86,7 +118,7 @@ function Dashboard() {
               <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
                 <p className="font-display text-xl font-bold">{l.aname}</p>
                 <p className="font-display text-5xl font-extrabold tabular-nums text-accent">
-                  {l.state?.score.A ?? 0}–{l.state?.score.B ?? 0}
+                  {l.state?.score?.A ?? 0}–{l.state?.score?.B ?? 0}
                 </p>
                 <p className="text-right font-display text-xl font-bold">{l.bname}</p>
               </div>
@@ -102,10 +134,7 @@ function Dashboard() {
               ) : (
                 <div className="space-y-2">
                   {data.active.map((t: any) => (
-                    <div
-                      key={t.id}
-                      className="flex items-center justify-between rounded-xl border bg-card p-4"
-                    >
+                    <div key={t.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
                       <div>
                         <p className="font-semibold">{t.name}</p>
                         <p className="text-sm text-muted-foreground">
@@ -127,7 +156,7 @@ function Dashboard() {
                 <Empty title="No upcoming matches" />
               ) : (
                 <ul className="divide-y rounded-xl border bg-card">
-                  {data.upcoming.map((m: any) => (
+                  {data.upcoming.map((m: UpcomingMatch) => (
                     <li key={m.id}>
                       <Link
                         to="/matches/$id"
@@ -150,7 +179,7 @@ function Dashboard() {
                 <Empty title="No results yet" />
               ) : (
                 <ol className="divide-y rounded-xl border bg-card">
-                  {data.top.map((p: any, i: number) => (
+                  {data.top.map((p: TopPlayer, i: number) => (
                     <li key={p.id}>
                       <Link
                         to="/players/$id"

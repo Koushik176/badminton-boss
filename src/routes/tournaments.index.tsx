@@ -6,6 +6,20 @@ import { AppShell, Empty, StatusBadge } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
+type Tournament = {
+  id: string;
+  name: string;
+  date: string;
+  location: string;
+  status: string;
+  type: string;
+  team_count: number;
+  format: number;
+  done: number;
+  total: number;
+  champion_name?: string | null;
+};
+
 export const Route = createFileRoute("/tournaments/")({
   head: () => ({
     meta: [

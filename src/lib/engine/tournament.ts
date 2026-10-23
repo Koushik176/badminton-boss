@@ -274,12 +274,7 @@ export function standings(teams: string[], results: ResultRow[]): StandingRow[] 
     B.scored += r.pointsB;
     B.conceded += r.pointsA;
     const [W, L] = r.winner === r.a ? [A, B] : [B, A];
-    W.w++;
-    W.points += 2;
-    L.l++;
-    const d = matchPointDiff(r);
-    A.pd += d;
-    B.pd -= d;
+    W.w++; W.points += 2; L.l++;
   }
   const rows = [...map.values()];
   const h2h = (x: string, y: string) => {

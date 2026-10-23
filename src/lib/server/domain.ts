@@ -472,8 +472,14 @@ export async function playerStats(
   const players = await q(`SELECT id,name,nickname FROM players ORDER BY name`);
   const cond: string[] = ["m.status='COMPLETED'"];
   const params: unknown[] = [];
-  if (filter.since) (cond.push("t.date >= ?"), params.push(filter.since));
-  if (filter.tournamentId) (cond.push("t.id = ?"), params.push(filter.tournamentId));
+  if (filter.since) {
+    cond.push("t.date >= ?");
+    params.push(filter.since);
+  }
+  if (filter.tournamentId) {
+    cond.push("t.id = ?");
+    params.push(filter.tournamentId);
+  }
   const rows = await q(
     `SELECT m.id, m.tournament_id, m.kind, m.round_name, m.winner_team_id, m.team_a_id, m.team_b_id, m.score_a_total, m.score_b_total, m.games_json, m.completed_at,
       ta.name aname, tb.name bname, ta.player1_id a1, ta.player2_id a2, tb.player1_id b1, tb.player2_id b2, t.name tname, t.date tdate
@@ -515,20 +521,8 @@ export async function playerStats(
       games: r.games_json ? JSON.parse(r.games_json) : undefined,
     });
     const sides = [
-      {
-        ids: [r.a1, r.a2],
-        team: r.team_a_id,
-        pf: Number(r.score_a_total),
-        pa: Number(r.score_b_total),
-        pd: diffA,
-      },
-      {
-        ids: [r.b1, r.b2],
-        team: r.team_b_id,
-        pf: Number(r.score_b_total),
-        pa: Number(r.score_a_total),
-        pd: -diffA,
-      },
+      { ids: [r.a1, r.a2], team: r.team_a_id, pf: Number(r.score_a_total), pa: Number(r.score_b_total) },
+      { ids: [r.b1, r.b2], team: r.team_b_id, pf: Number(r.score_b_total), pa: Number(r.score_a_total) },
     ];
     for (const s of sides)
       for (const pid of s.ids) {
