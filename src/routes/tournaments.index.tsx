@@ -25,7 +25,7 @@ function Tournaments() {
   const { isOrganizer } = useAuth();
   const { data, isLoading } = useQuery({
     queryKey: ["tournaments"],
-    queryFn: () => api<any[]>("/tournaments"),
+    queryFn: () => api<Tournament[]>("/tournaments"),
   });
   return (
     <AppShell
