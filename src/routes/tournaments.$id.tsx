@@ -20,6 +20,60 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+type Team = {
+  id: string;
+  name: string;
+  player1_id: string;
+  player2_id: string;
+  p1name: string;
+  p2name: string;
+};
+
+type Game = {
+  A: number;
+  B: number;
+};
+
+type Match = {
+  id: string;
+  status: "BYE" | "LIVE" | "UPCOMING" | "SKIPPED" | "COMPLETED";
+  round_name: string;
+  round: number;
+  slot_index: number;
+  team_a_id: string | null;
+  team_b_id: string | null;
+  winner_team_id: string | null;
+  games: Game[];
+  live?: { score: Game };
+};
+
+type Standing = {
+  team: string;
+  mp: number;
+  w: number;
+  l: number;
+  points: number;
+  scored: number;
+  conceded: number;
+  pd: number;
+};
+
+type TournamentData = {
+  tournament: {
+    name: string;
+    status: string;
+    date: string;
+    location?: string | null;
+    type: "LEAGUE" | "KNOCKOUT";
+    format: number;
+    champion_team_id?: string | null;
+    runner_up_team_id?: string | null;
+  };
+  teams: Team[];
+  matches: Match[];
+  standings: Standing[];
+};
+
 export const Route = createFileRoute("/tournaments/$id")({
   head: () => ({
     meta: [
@@ -60,12 +114,16 @@ function TournamentPage() {
     );
 
   const { tournament: t, teams, matches, standings } = data;
-  const team = Object.fromEntries(teams.map((x: Team) => [x.id, x]));
+  const canAddTeam =
+    t.status !== "COMPLETED" && !matches.some((m: Match) => m.round_name === "League Final");
+  const team = Object.fromEntries(teams.map((x: { id: string; name: string }) => [x.id, x]));
   const tn = (tid: string | null) => (tid ? team[tid]?.name : "TBD");
-  const sched = matches.filter((m: any) => m.status !== "BYE");
-  const live = sched.find((m: any) => m.status === "LIVE");
-  const upcoming = sched.filter((m: any) => m.status === "UPCOMING" || m.status === "SKIPPED");
-  const nextId = upcoming.find((m: any) => m.status === "UPCOMING" && m.team_a_id && m.team_b_id)?.id;
+  const sched = matches.filter((m: Match) => m.status !== "BYE");
+  const live = sched.find((m: Match) => m.status === "LIVE");
+  const upcoming = sched.filter((m: Match) => m.status === "UPCOMING" || m.status === "SKIPPED");
+  const nextId = upcoming.find(
+    (m: Match) => m.status === "UPCOMING" && m.team_a_id && m.team_b_id,
+  )?.id;
 
   async function op(mid: string, o: string) {
     try {
@@ -75,7 +133,25 @@ function TournamentPage() {
       toast.error((e as Error).message);
     }
   }
-  const label = (m: any) => (m.status === "LIVE" ? "Live" : m.id === nextId ? "Up next" : m.status === "COMPLETED" ? "Completed" : m.status === "SKIPPED" ? "Skipped" : "Upcoming");
+  const label = (m: (typeof matches)[number]) =>
+    m.status === "LIVE"
+      ? "Live"
+      : m.id === nextId
+        ? "Up next"
+        : m.status === "COMPLETED"
+          ? "Completed"
+          : m.status === "SKIPPED"
+            ? "Skipped"
+            : "Upcoming";
+
+  async function rebalance(): Promise<void> {
+    try {
+      await api(`/tournaments/${id}/schedule`, { body: { op: "rebalance" } });
+      qc.invalidateQueries({ queryKey: ["tournament", id] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
 
   return (
     <AppShell title={t.name}>
@@ -167,7 +243,11 @@ function TournamentPage() {
                         {tn(m.team_b_id)}
                       </span>
                     </Link>
-                    {m.status === "COMPLETED" && <span className="font-display tabular-nums">{m.games.map((g: any) => `${g.A}-${g.B}`).join(", ")}</span>}
+                    {m.status === "COMPLETED" && (
+                      <span className="font-display tabular-nums">
+                        {m.games.map((g: { A: number; B: number }) => `${g.A}-${g.B}`).join(", ")}
+                      </span>
+                    )}
                     {editable && (
                       <div className="flex gap-1">
                         {m.team_a_id && m.team_b_id && (
@@ -261,24 +341,36 @@ function TournamentPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">Top 2 play the League Final (Best of 1). The final does not change this table.</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Top 2 play the League Final (Best of 1). The final does not change this table.
+          </p>
         </TabsContent>
 
         <TabsContent value="bracket">
           <div className="flex gap-4 overflow-x-auto pb-2">
             {[...new Set(matches.map((m: Match) => m.round))].sort().map((r) => (
               <div key={r as number} className="flex min-w-56 flex-col justify-around gap-3">
-                <p className="text-center text-xs font-bold uppercase text-muted-foreground">{matches.find((m: any) => m.round === r)?.round_name}</p>
-                {matches.filter((m: any) => m.round === r).sort((a: any, b: any) => a.slot_index - b.slot_index).map((m: any) => (
-                  <div key={m.id} className="rounded-lg border bg-card text-sm">
-                    {[m.team_a_id, m.team_b_id].map((tid, k) => (
-                      <div key={k} className={`flex justify-between px-3 py-2 ${k ? "border-t" : ""} ${tid && tid === m.winner_team_id ? "font-bold text-primary" : ""}`}>
-                        <span>{m.status === "BYE" && k === 1 ? "BYE" : tn(tid)}</span>
-                        <span className="tabular-nums">{m.games.map((g: any) => (k ? g.B : g.A)).join(" ")}</span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                <p className="text-center text-xs font-bold uppercase text-muted-foreground">
+                  {matches.find((m: Match) => m.round === r)?.round_name}
+                </p>
+                {matches
+                  .filter((m: Match) => m.round === r)
+                  .sort((a: Match, b: Match) => a.slot_index - b.slot_index)
+                  .map((m: Match) => (
+                    <div key={m.id} className="rounded-lg border bg-card text-sm">
+                      {[m.team_a_id, m.team_b_id].map((tid, k) => (
+                        <div
+                          key={k}
+                          className={`flex justify-between px-3 py-2 ${k ? "border-t" : ""} ${tid && tid === m.winner_team_id ? "font-bold text-primary" : ""}`}
+                        >
+                          <span>{m.status === "BYE" && k === 1 ? "BYE" : tn(tid)}</span>
+                          <span className="tabular-nums">
+                            {m.games.map((g: Game) => (k ? g.B : g.A)).join(" ")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
               </div>
             ))}
           </div>
@@ -298,7 +390,7 @@ function TournamentPage() {
             (canAddTeam ? (
               <AddTeam
                 tournamentId={id}
-                usedPlayers={new Set(teams.flatMap((x: any) => [x.player1_id, x.player2_id]))}
+                usedPlayers={new Set(teams.flatMap((x: Team) => [x.player1_id, x.player2_id]))}
                 onDone={() => qc.invalidateQueries({ queryKey: ["tournament", id] })}
               />
             ) : (
@@ -327,18 +419,94 @@ function TournamentPage() {
         </TabsContent>
 
         <TabsContent value="results">
-          {matches.filter((m: any) => m.status === "COMPLETED").length === 0 ? <Empty title="No results yet" /> : (
+          {matches.filter((m: Match) => m.status === "COMPLETED").length === 0 ? (
+            <Empty title="No results yet" />
+          ) : (
             <ul className="divide-y rounded-xl border bg-card">
-              {matches.filter((m: any) => m.status === "COMPLETED").map((m: any) => (
-                <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-                  <span><span className="text-xs text-muted-foreground">{m.round_name} · </span><b>{tn(m.winner_team_id)}</b> beat {tn(m.winner_team_id === m.team_a_id ? m.team_b_id : m.team_a_id)}</span>
-                  <span className="font-display tabular-nums">{m.games.map((g: any) => `${g.A}-${g.B}`).join(", ")}</span>
-                </li>
-              ))}
+              {matches
+                .filter((m: Match) => m.status === "COMPLETED")
+                .map((m: Match) => (
+                  <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                    <span>
+                      <span className="text-xs text-muted-foreground">{m.round_name} · </span>
+                      <b>{tn(m.winner_team_id)}</b> beat{" "}
+                      {tn(m.winner_team_id === m.team_a_id ? m.team_b_id : m.team_a_id)}
+                    </span>
+                    <span className="font-display tabular-nums">
+                      {m.games.map((g: Game) => `${g.A}-${g.B}`).join(", ")}
+                    </span>
+                  </li>
+                ))}
             </ul>
           )}
         </TabsContent>
       </Tabs>
     </AppShell>
+  );
+}
+
+function AddTeam({
+  tournamentId,
+  usedPlayers,
+  onDone,
+}: {
+  tournamentId: string;
+  usedPlayers: Set<string>;
+  onDone: () => void;
+}) {
+  const [player1Id, setPlayer1Id] = useState("");
+  const [player2Id, setPlayer2Id] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function addTeam(event: { preventDefault: () => void }) {
+    event.preventDefault();
+    const player1_id = player1Id.trim();
+    const player2_id = player2Id.trim();
+    if (
+      !player1_id ||
+      !player2_id ||
+      player1_id === player2_id ||
+      usedPlayers.has(player1_id) ||
+      usedPlayers.has(player2_id)
+    ) {
+      toast.error("Enter two different players who aren't already on a team.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api(`/tournaments/${tournamentId}/teams`, {
+        body: { player1_id, player2_id },
+      });
+      setPlayer1Id("");
+      setPlayer2Id("");
+      onDone();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={addTeam} className="mb-4 flex flex-wrap items-center gap-2">
+      <Input
+        aria-label="First player ID"
+        placeholder="First player ID"
+        value={player1Id}
+        onChange={(event) => setPlayer1Id(event.target.value)}
+        className="w-48"
+      />
+      <Input
+        aria-label="Second player ID"
+        placeholder="Second player ID"
+        value={player2Id}
+        onChange={(event) => setPlayer2Id(event.target.value)}
+        className="w-48"
+      />
+      <Button type="submit" size="sm" disabled={saving}>
+        <Plus className="h-4 w-4" /> {saving ? "Adding…" : "Add team"}
+      </Button>
+    </form>
   );
 }

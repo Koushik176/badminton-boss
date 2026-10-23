@@ -62,12 +62,16 @@ function Player() {
             <Empty title="No partners yet" />
           ) : (
             <ul className="divide-y rounded-xl border bg-card">
-              {data.partners.map((p: any) => (
-                <li key={p.id} className="flex justify-between p-3">
-                  <span>{p.name}</span>
-                  <span className="text-sm text-muted-foreground">{p.wins}/{p.played} won</span>
-                </li>
-              ))}
+              {data.partners.map(
+                (p: { id: string | number; name: string; wins: number; played: number }) => (
+                  <li key={p.id} className="flex justify-between p-3">
+                    <span>{p.name}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {p.wins}/{p.played} won
+                    </span>
+                  </li>
+                ),
+              )}
             </ul>
           )}
         </section>
@@ -77,20 +81,45 @@ function Player() {
             <Empty title="No matches played" />
           ) : (
             <ul className="divide-y rounded-xl border bg-card">
-              {data.history.map((m: any) => (
-                <li key={m.id}>
-                  <Link to="/matches/$id" params={{ id: m.id }} className="flex items-center gap-3 p-3 hover:bg-muted">
-                    <span className={`w-6 font-display text-lg font-bold ${m.won ? "text-success" : "text-destructive"}`}>{m.won ? "W" : "L"}</span>
-                    <div className="flex-1">
-                      <p className="font-medium">vs {m.opponent}</p>
-                      <p className="text-xs text-muted-foreground">{m.tournament} · {m.round} · {m.date}</p>
-                    </div>
-                    <span className="font-display tabular-nums">
-                      {m.games.map((g: any) => (m.side === "A" ? `${g.A}-${g.B}` : `${g.B}-${g.A}`)).join(", ")}
-                    </span>
-                  </Link>
-                </li>
-              ))}
+              {data.history.map(
+                (m: {
+                  id: string | number;
+                  won: boolean;
+                  opponent: string;
+                  tournament: string;
+                  round: string;
+                  date: string;
+                  side: "A" | "B";
+                  games: { A: number; B: number }[];
+                }) => (
+                  <li key={m.id}>
+                    <Link
+                      to="/matches/$id"
+                      params={{ id: String(m.id) }}
+                      className="flex items-center gap-3 p-3 hover:bg-muted"
+                    >
+                      <span
+                        className={`w-6 font-display text-lg font-bold ${m.won ? "text-success" : "text-destructive"}`}
+                      >
+                        {m.won ? "W" : "L"}
+                      </span>
+                      <div className="flex-1">
+                        <p className="font-medium">vs {m.opponent}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {m.tournament} · {m.round} · {m.date}
+                        </p>
+                      </div>
+                      <span className="font-display tabular-nums">
+                        {m.games
+                          .map((g: { A: number; B: number }) =>
+                            m.side === "A" ? `${g.A}-${g.B}` : `${g.B}-${g.A}`,
+                          )
+                          .join(", ")}
+                      </span>
+                    </Link>
+                  </li>
+                ),
+              )}
             </ul>
           )}
         </section>
