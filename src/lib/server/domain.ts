@@ -29,11 +29,15 @@ export async function createTournament(input: CreateTournamentInput) {
   const n = input.teams.length;
   if (n < 2) throw new HttpError(400, "At least 2 teams are required to start a tournament.");
   const ids = input.teams.flatMap((t) => t.players);
-  if (ids.length !== n * 2) throw new HttpError(400, "Each doubles team must contain exactly 2 players.");
-  if (new Set(ids).size !== ids.length) throw new HttpError(400, "This player is already assigned to another team.");
+  if (ids.length !== n * 2)
+    throw new HttpError(400, "Each doubles team must contain exactly 2 players.");
+  if (new Set(ids).size !== ids.length)
+    throw new HttpError(400, "This player is already assigned to another team.");
   const names = input.teams.map((t) => t.name.trim().toLowerCase());
-  if (new Set(names).size !== n) throw new HttpError(400, "Team names must be unique within the tournament.");
-  const isIdx = (x: unknown): x is number => Number.isInteger(x) && (x as number) >= 0 && (x as number) < n;
+  if (new Set(names).size !== n)
+    throw new HttpError(400, "Team names must be unique within the tournament.");
+  const isIdx = (x: unknown): x is number =>
+    Number.isInteger(x) && (x as number) >= 0 && (x as number) < n;
   validateFixtures(input, n, isIdx);
   const known = await q<{ id: string }>(
     `SELECT id FROM players WHERE id IN (${ids.map(() => "?").join(",")})`,
@@ -97,7 +101,21 @@ export async function createTournament(input: CreateTournamentInput) {
         stmts.push([
           `INSERT INTO matches (id,tournament_id,kind,round,round_name,slot_index,team_a_id,team_b_id,winner_team_id,status,play_order,feeds_into_match_id,feeds_slot,format)
            VALUES (?,?,'KNOCKOUT',?,?,?,?,?,?,?,?,?,?,?)`,
-          [id, tid, r, roundName(r, rounds), i, a, b, bye ? a : null, bye ? "BYE" : "UPCOMING", bye ? 0 : order++, feeds, feeds ? slot : null, input.format],
+          [
+            id,
+            tid,
+            r,
+            roundName(r, rounds),
+            i,
+            a,
+            b,
+            bye ? a : null,
+            bye ? "BYE" : "UPCOMING",
+            bye ? 0 : order++,
+            feeds,
+            feeds ? slot : null,
+            input.format,
+          ],
         ]);
       }
     }
@@ -117,7 +135,8 @@ export function validateFixtures(
     if (input.fixtures.length !== (n * (n - 1)) / 2) throw new HttpError(400, bad);
     const keys = new Set<string>();
     for (const [a, b] of input.fixtures) {
-      if (!isIdx(a) || !isIdx(b)) throw new HttpError(400, "A fixture refers to a team that does not exist.");
+      if (!isIdx(a) || !isIdx(b))
+        throw new HttpError(400, "A fixture refers to a team that does not exist.");
       if (a === b) throw new HttpError(400, "A team cannot play itself.");
       const k = a < b ? `${a}-${b}` : `${b}-${a}`;
       if (keys.has(k)) throw new HttpError(400, bad);
@@ -129,12 +148,14 @@ export function validateFixtures(
     if (size < 2 || (size & (size - 1)) !== 0 || size >= n * 2) throw new HttpError(400, bad);
     const used: number[] = [];
     for (const [a, b] of input.fixtures) {
-      if (!isIdx(a) || (b !== null && !isIdx(b))) throw new HttpError(400, "A fixture refers to a team that does not exist.");
+      if (!isIdx(a) || (b !== null && !isIdx(b)))
+        throw new HttpError(400, "A fixture refers to a team that does not exist.");
       if (a === b) throw new HttpError(400, "A team cannot play itself.");
       used.push(a);
       if (b !== null) used.push(b);
     }
-    if (used.length !== n || new Set(used).size !== n) throw new HttpError(400, "Every team must appear exactly once in the bracket.");
+    if (used.length !== n || new Set(used).size !== n)
+      throw new HttpError(400, "Every team must appear exactly once in the bracket.");
   }
 }
 
@@ -177,21 +198,20 @@ const toResult = (m: any): ResultRow => ({
 });
 
 async function finishTournament(tid: string, champion: string, runnerUp: string) {
-  await exec(`UPDATE tournaments SET status='COMPLETED', champion_team_id=?, runner_up_team_id=? WHERE id=?`, [
-    champion,
-    runnerUp,
-    tid,
-  ]);
+  await exec(
+    `UPDATE tournaments SET status='COMPLETED', champion_team_id=?, runner_up_team_id=? WHERE id=?`,
+    [champion, runnerUp, tid],
+  );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function advance(m: any, winner: string, loser: string) {
   if (m.kind === "KNOCKOUT") {
     if (m.feeds_into_match_id)
-      await exec(`UPDATE matches SET ${m.feeds_slot === "A" ? "team_a_id" : "team_b_id"}=? WHERE id=?`, [
-        winner,
-        m.feeds_into_match_id,
-      ]);
+      await exec(
+        `UPDATE matches SET ${m.feeds_slot === "A" ? "team_a_id" : "team_b_id"}=? WHERE id=?`,
+        [winner, m.feeds_into_match_id],
+      );
     else await finishTournament(m.tournament_id, winner, loser);
   } else if (m.kind === "LEAGUE_FINAL") {
     await finishTournament(m.tournament_id, winner, loser);
@@ -200,13 +220,16 @@ async function advance(m: any, winner: string, loser: string) {
       `SELECT COUNT(*) c FROM matches WHERE tournament_id=? AND kind='LEAGUE' AND status<>'COMPLETED'`,
       [m.tournament_id],
     );
-    const [{ f }] = await q(`SELECT COUNT(*) f FROM matches WHERE tournament_id=? AND kind='LEAGUE_FINAL'`, [
-      m.tournament_id,
-    ]);
+    const [{ f }] = await q(
+      `SELECT COUNT(*) f FROM matches WHERE tournament_id=? AND kind='LEAGUE_FINAL'`,
+      [m.tournament_id],
+    );
     if (Number(c) === 0 && Number(f) === 0) {
       const { standings: table } = await getTournament(m.tournament_id);
       if (table.length < 2) return;
-      const [{ mx }] = await q(`SELECT MAX(play_order) mx FROM matches WHERE tournament_id=?`, [m.tournament_id]);
+      const [{ mx }] = await q(`SELECT MAX(play_order) mx FROM matches WHERE tournament_id=?`, [
+        m.tournament_id,
+      ]);
       await exec(
         `INSERT INTO matches (id,tournament_id,kind,round,round_name,team_a_id,team_b_id,status,play_order,format) VALUES (?,?,'LEAGUE_FINAL',2,'League Final',?,?,'UPCOMING',?,1)`,
         [uid(), m.tournament_id, table[0]!.team, table[1]!.team, Number(mx) + 1],
@@ -275,16 +298,23 @@ export interface StartInput {
 
 export async function startMatch(id: string, input: StartInput) {
   const m = await loadRow(id);
-  if (m.status !== "UPCOMING" && m.status !== "SKIPPED") throw new HttpError(400, "This match cannot be started.");
-  if (!m.team_a_id || !m.team_b_id) throw new HttpError(400, "Both teams must be known before starting.");
-  const [{ c }] = await q(`SELECT COUNT(*) c FROM matches WHERE tournament_id=? AND status='LIVE'`, [
-    m.tournament_id,
-  ]);
+  if (m.status !== "UPCOMING" && m.status !== "SKIPPED")
+    throw new HttpError(400, "This match cannot be started.");
+  if (!m.team_a_id || !m.team_b_id)
+    throw new HttpError(400, "Both teams must be known before starting.");
+  const [{ c }] = await q(
+    `SELECT COUNT(*) c FROM matches WHERE tournament_id=? AND status='LIVE'`,
+    [m.tournament_id],
+  );
   if (Number(c) > 0) throw new HttpError(409, "Another match is already live. Finish it first.");
-  const expectServe = input.tossChoice === "SERVE" ? input.tossWinner : input.tossWinner === "A" ? "B" : "A";
+  const expectServe =
+    input.tossChoice === "SERVE" ? input.tossWinner : input.tossWinner === "A" ? "B" : "A";
   if (input.servingTeam !== expectServe)
     throw new HttpError(400, "The serving team does not match the coin toss decision.");
-  const teams = await q(`SELECT id,player1_id,player2_id FROM teams WHERE id IN (?,?)`, [m.team_a_id, m.team_b_id]);
+  const teams = await q(`SELECT id,player1_id,player2_id FROM teams WHERE id IN (?,?)`, [
+    m.team_a_id,
+    m.team_b_id,
+  ]);
   const A = teams.find((t) => t.id === m.team_a_id)!,
     B = teams.find((t) => t.id === m.team_b_id)!;
   const initial = createMatch({
@@ -302,7 +332,13 @@ export async function startMatch(id: string, input: StartInput) {
   const state = applyAction(initial, action);
   await exec(
     `UPDATE matches SET status='LIVE', toss_json=?, initial_json=?, actions_json=?, state_json=?, seq=1, started_at=NOW(), updated_at=NOW() WHERE id=?`,
-    [JSON.stringify(input), JSON.stringify(initial), JSON.stringify([action]), JSON.stringify(state), id],
+    [
+      JSON.stringify(input),
+      JSON.stringify(initial),
+      JSON.stringify([action]),
+      JSON.stringify(state),
+      id,
+    ],
   );
   await exec(`INSERT INTO match_events (match_id,seq,action_json,state_json) VALUES (?,?,?,?)`, [
     id,
@@ -313,7 +349,11 @@ export async function startMatch(id: string, input: StartInput) {
   return getMatch(id);
 }
 
-export async function matchAction(id: string, action: MatchAction | { type: "UNDO" }, expectedSeq?: number) {
+export async function matchAction(
+  id: string,
+  action: MatchAction | { type: "UNDO" },
+  expectedSeq?: number,
+) {
   const m = await loadRow(id);
   if (m.status !== "LIVE") throw new HttpError(400, "This match is not live.");
   const seq = Number(m.seq);
@@ -354,7 +394,8 @@ export async function confirmMatch(id: string, userId?: string) {
   const m = await loadRow(id);
   if (m.status !== "LIVE") throw new HttpError(400, "This match is not live.");
   const state = replay(JSON.parse(m.initial_json), JSON.parse(m.actions_json)) as MatchState;
-  if (state.status !== "MATCH_OVER" || !state.winner) throw new HttpError(400, "The match is not finished yet.");
+  if (state.status !== "MATCH_OVER" || !state.winner)
+    throw new HttpError(400, "The match is not finished yet.");
   const winner = state.winner === "A" ? m.team_a_id : m.team_b_id;
   const loser = state.winner === "A" ? m.team_b_id : m.team_a_id;
   const totA = state.games.reduce((s, g) => s + g.A, 0),
@@ -375,12 +416,18 @@ export async function confirmMatch(id: string, userId?: string) {
 
 export async function scheduleOp(id: string, op: "up" | "down" | "end" | "skip" | "unskip") {
   const m = await loadRow(id);
-  if (!["UPCOMING", "SKIPPED"].includes(m.status)) throw new HttpError(400, "Only upcoming matches can be moved.");
+  if (!["UPCOMING", "SKIPPED"].includes(m.status))
+    throw new HttpError(400, "Only upcoming matches can be moved.");
   if (op === "skip") return exec(`UPDATE matches SET status='SKIPPED' WHERE id=?`, [id]);
   if (op === "unskip") return exec(`UPDATE matches SET status='UPCOMING' WHERE id=?`, [id]);
   if (op === "end") {
-    const [{ mx }] = await q(`SELECT MAX(play_order) mx FROM matches WHERE tournament_id=?`, [m.tournament_id]);
-    return exec(`UPDATE matches SET play_order=?, status='UPCOMING' WHERE id=?`, [Number(mx) + 1, id]);
+    const [{ mx }] = await q(`SELECT MAX(play_order) mx FROM matches WHERE tournament_id=?`, [
+      m.tournament_id,
+    ]);
+    return exec(`UPDATE matches SET play_order=?, status='UPCOMING' WHERE id=?`, [
+      Number(mx) + 1,
+      id,
+    ]);
   }
   const [nb] = await q(
     `SELECT id, play_order FROM matches WHERE tournament_id=? AND status IN ('UPCOMING','SKIPPED') AND play_order ${op === "up" ? "<" : ">"} ? ORDER BY play_order ${op === "up" ? "DESC" : "ASC"} LIMIT 1`,
@@ -408,7 +455,9 @@ export interface PlayerStat {
   tournaments: number;
 }
 
-export async function playerStats(filter: { since?: string | undefined; tournamentId?: string | undefined } = {}) {
+export async function playerStats(
+  filter: { since?: string | undefined; tournamentId?: string | undefined } = {},
+) {
   const players = await q(`SELECT id,name,nickname FROM players ORDER BY name`);
   const cond: string[] = ["m.status='COMPLETED'"];
   const params: unknown[] = [];
@@ -431,13 +480,36 @@ export async function playerStats(filter: { since?: string | undefined; tourname
   const map = new Map<string, PlayerStat>(
     players.map((p) => [
       p.id,
-      { id: p.id, name: p.name, played: 0, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, pd: 0, winPct: 0, titles: 0, runnerUps: 0, tournaments: 0 },
+      {
+        id: p.id,
+        name: p.name,
+        played: 0,
+        wins: 0,
+        losses: 0,
+        pointsFor: 0,
+        pointsAgainst: 0,
+        pd: 0,
+        winPct: 0,
+        titles: 0,
+        runnerUps: 0,
+        tournaments: 0,
+      },
     ]),
   );
   for (const r of rows) {
     const sides = [
-      { ids: [r.a1, r.a2], team: r.team_a_id, pf: Number(r.score_a_total), pa: Number(r.score_b_total) },
-      { ids: [r.b1, r.b2], team: r.team_b_id, pf: Number(r.score_b_total), pa: Number(r.score_a_total) },
+      {
+        ids: [r.a1, r.a2],
+        team: r.team_a_id,
+        pf: Number(r.score_a_total),
+        pa: Number(r.score_b_total),
+      },
+      {
+        ids: [r.b1, r.b2],
+        team: r.team_b_id,
+        pf: Number(r.score_b_total),
+        pa: Number(r.score_a_total),
+      },
     ];
     for (const s of sides)
       for (const pid of s.ids) {

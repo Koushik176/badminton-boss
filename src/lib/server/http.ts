@@ -23,7 +23,8 @@ export function handle(fn: (ctx: Ctx) => Promise<Response>) {
     } catch (e) {
       if (e instanceof HttpError) return json({ error: e.message }, e.status);
       if (e instanceof EngineError) return json({ error: e.message }, 400);
-      if (e instanceof z.ZodError) return json({ error: e.issues[0]?.message ?? "Invalid input" }, 400);
+      if (e instanceof z.ZodError)
+        return json({ error: e.issues[0]?.message ?? "Invalid input" }, 400);
       console.error(e);
       return json({ error: "Something went wrong. Please try again." }, 500);
     }

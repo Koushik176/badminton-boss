@@ -14,7 +14,10 @@ export const Route = createFileRoute("/login")({
       { title: "Organizer sign in — Smash Court" },
       { name: "description", content: "Sign in to manage badminton tournaments and live scoring." },
       { property: "og:title", content: "Organizer sign in — Smash Court" },
-      { property: "og:description", content: "Sign in to manage badminton tournaments and live scoring." },
+      {
+        property: "og:description",
+        content: "Sign in to manage badminton tournaments and live scoring.",
+      },
     ],
   }),
   component: Login,
@@ -22,7 +25,10 @@ export const Route = createFileRoute("/login")({
 
 function Login() {
   const navigate = useNavigate();
-  const status = useQuery({ queryKey: ["auth-status"], queryFn: () => api<{ hasOrganizer: boolean }>("/auth/status") });
+  const status = useQuery({
+    queryKey: ["auth-status"],
+    queryFn: () => api<{ hasOrganizer: boolean }>("/auth/status"),
+  });
   const setup = status.data && !status.data.hasOrganizer;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,7 +38,9 @@ function Login() {
     e.preventDefault();
     setBusy(true);
     try {
-      const r = await api<{ token: string; email: string }>(setup ? "/auth/setup" : "/auth/login", { body: { email, password } });
+      const r = await api<{ token: string; email: string }>(setup ? "/auth/setup" : "/auth/login", {
+        body: { email, password },
+      });
       setSession(r.token, r.email);
       toast.success(setup ? "Organizer account created" : "Signed in");
       navigate({ to: "/" });
@@ -45,7 +53,10 @@ function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-sidebar p-4">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-5 rounded-2xl bg-card p-8 shadow-xl">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-sm space-y-5 rounded-2xl bg-card p-8 shadow-xl"
+      >
         <div className="text-center">
           <Shuttle className="mx-auto h-12 w-12 text-primary" />
           <h1 className="mt-2 font-display text-3xl font-extrabold uppercase">Smash Court</h1>
@@ -55,11 +66,24 @@ function Login() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input
+            id="email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="pw">Password</Label>
-          <Input id="pw" type="password" required minLength={setup ? 8 : 1} value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input
+            id="pw"
+            type="password"
+            required
+            minLength={setup ? 8 : 1}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </div>
         <Button type="submit" className="w-full" size="lg" disabled={busy || status.isLoading}>
           {setup ? "Create account" : "Sign in"}
