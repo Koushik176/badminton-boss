@@ -521,8 +521,18 @@ export async function playerStats(
       games: r.games_json ? JSON.parse(r.games_json) : undefined,
     });
     const sides = [
-      { ids: [r.a1, r.a2], team: r.team_a_id, pf: Number(r.score_a_total), pa: Number(r.score_b_total) },
-      { ids: [r.b1, r.b2], team: r.team_b_id, pf: Number(r.score_b_total), pa: Number(r.score_a_total) },
+      {
+        ids: [r.a1, r.a2],
+        team: r.team_a_id,
+        pf: Number(r.score_a_total),
+        pa: Number(r.score_b_total),
+      },
+      {
+        ids: [r.b1, r.b2],
+        team: r.team_b_id,
+        pf: Number(r.score_b_total),
+        pa: Number(r.score_a_total),
+      },
     ];
     for (const s of sides)
       for (const pid of s.ids) {

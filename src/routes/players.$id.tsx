@@ -65,7 +65,9 @@ function Player() {
               {data.partners.map((p: any) => (
                 <li key={p.id} className="flex justify-between p-3">
                   <span>{p.name}</span>
-                  <span className="text-sm text-muted-foreground">{p.wins}/{p.played} won</span>
+                  <span className="text-sm text-muted-foreground">
+                    {p.wins}/{p.played} won
+                  </span>
                 </li>
               ))}
             </ul>
@@ -79,14 +81,26 @@ function Player() {
             <ul className="divide-y rounded-xl border bg-card">
               {data.history.map((m: any) => (
                 <li key={m.id}>
-                  <Link to="/matches/$id" params={{ id: m.id }} className="flex items-center gap-3 p-3 hover:bg-muted">
-                    <span className={`w-6 font-display text-lg font-bold ${m.won ? "text-success" : "text-destructive"}`}>{m.won ? "W" : "L"}</span>
+                  <Link
+                    to="/matches/$id"
+                    params={{ id: m.id }}
+                    className="flex items-center gap-3 p-3 hover:bg-muted"
+                  >
+                    <span
+                      className={`w-6 font-display text-lg font-bold ${m.won ? "text-success" : "text-destructive"}`}
+                    >
+                      {m.won ? "W" : "L"}
+                    </span>
                     <div className="flex-1">
                       <p className="font-medium">vs {m.opponent}</p>
-                      <p className="text-xs text-muted-foreground">{m.tournament} · {m.round} · {m.date}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {m.tournament} · {m.round} · {m.date}
+                      </p>
                     </div>
                     <span className="font-display tabular-nums">
-                      {m.games.map((g: any) => (m.side === "A" ? `${g.A}-${g.B}` : `${g.B}-${g.A}`)).join(", ")}
+                      {m.games
+                        .map((g: any) => (m.side === "A" ? `${g.A}-${g.B}` : `${g.B}-${g.A}`))
+                        .join(", ")}
                     </span>
                   </Link>
                 </li>
