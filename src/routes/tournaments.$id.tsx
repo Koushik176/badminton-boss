@@ -2,7 +2,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useState } from "react";
-import { ArrowDown, ArrowUp, ChevronsDown, Plus, Play, Scale, SkipForward, Trophy, Undo2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronsDown,
+  Plus,
+  Play,
+  Scale,
+  SkipForward,
+  Trophy,
+  Undo2,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { api, useAuth } from "@/lib/api";
 import { AppShell, Empty, StatusBadge } from "@/components/AppShell";
@@ -28,8 +38,19 @@ export const Route = createFileRoute("/tournaments/$id")({
   component: TournamentPage,
 });
 
-function AddTeam({ tournamentId, usedPlayers, onDone }: { tournamentId: string; usedPlayers: Set<string>; onDone: () => void }) {
-  const { data: players = [] } = useQuery({ queryKey: ["players"], queryFn: () => api<any[]>("/players") });
+function AddTeam({
+  tournamentId,
+  usedPlayers,
+  onDone,
+}: {
+  tournamentId: string;
+  usedPlayers: Set<string>;
+  onDone: () => void;
+}) {
+  const { data: players = [] } = useQuery({
+    queryKey: ["players"],
+    queryFn: () => api<any[]>("/players"),
+  });
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [p1, setP1] = useState("");
@@ -41,9 +62,14 @@ function AddTeam({ tournamentId, usedPlayers, onDone }: { tournamentId: string; 
     if (busy) return;
     setBusy(true);
     try {
-      await api(`/tournaments/${tournamentId}/teams`, { body: { name: name.trim(), players: [p1, p2] } });
+      await api(`/tournaments/${tournamentId}/teams`, {
+        body: { name: name.trim(), players: [p1, p2] },
+      });
       toast.success("Team added and fixtures created");
-      setName(""); setP1(""); setP2(""); setOpen(false);
+      setName("");
+      setP1("");
+      setP2("");
+      setOpen(false);
       onDone();
     } catch (e) {
       toast.error((e as Error).message);
@@ -51,22 +77,58 @@ function AddTeam({ tournamentId, usedPlayers, onDone }: { tournamentId: string; 
       setBusy(false);
     }
   }
-  if (!open) return <Button size="sm" className="mb-4" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Add team</Button>;
+  if (!open)
+    return (
+      <Button size="sm" className="mb-4" onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4" /> Add team
+      </Button>
+    );
   return (
     <div className="mb-4 space-y-3 rounded-xl border bg-card p-4">
-      <Input placeholder="Team name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
+      <Input
+        placeholder="Team name"
+        value={name}
+        maxLength={100}
+        onChange={(e) => setName(e.target.value)}
+      />
       <div className="grid gap-2 sm:grid-cols-2">
-        {[[p1, setP1, p2], [p2, setP2, p1]].map(([v, set, other], i) => (
-          <select key={i} className={sel} value={v as string} onChange={(e) => (set as (x: string) => void)(e.target.value)} aria-label={`Player ${i + 1}`}>
+        {[
+          [p1, setP1, p2],
+          [p2, setP2, p1],
+        ].map(([v, set, other], i) => (
+          <select
+            key={i}
+            className={sel}
+            value={v as string}
+            onChange={(e) => (set as (x: string) => void)(e.target.value)}
+            aria-label={`Player ${i + 1}`}
+          >
             <option value="">Player {i + 1}</option>
-            {free.filter((p) => p.id !== other).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {free
+              .filter((p) => p.id !== other)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
           </select>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">New fixtures against every existing team are added and the upcoming matches are rebalanced. Completed and live matches are not changed.</p>
+      <p className="text-xs text-muted-foreground">
+        New fixtures against every existing team are added and the upcoming matches are rebalanced.
+        Completed and live matches are not changed.
+      </p>
       <div className="flex gap-2">
-        <Button size="sm" disabled={busy || !name.trim() || !p1 || !p2 || p1 === p2} onClick={submit}>Add team</Button>
-        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+        <Button
+          size="sm"
+          disabled={busy || !name.trim() || !p1 || !p2 || p1 === p2}
+          onClick={submit}
+        >
+          Add team
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
       </div>
     </div>
   );
@@ -111,7 +173,10 @@ function TournamentPage() {
       toast.error((e as Error).message);
     }
   }
-  const canAddTeam = t.type === "LEAGUE" && t.status === "LIVE" && !matches.some((m: any) => m.kind === "LEAGUE_FINAL");
+  const canAddTeam =
+    t.type === "LEAGUE" &&
+    t.status === "LIVE" &&
+    !matches.some((m: any) => m.kind === "LEAGUE_FINAL");
   async function rebalance() {
     try {
       await api(`/tournaments/${id}/rebalance`, { body: {} });
@@ -121,7 +186,16 @@ function TournamentPage() {
       toast.error((e as Error).message);
     }
   }
-  const label = (m: any) => (m.status === "LIVE" ? "Live" : m.id === nextId ? "Up next" : m.status === "COMPLETED" ? "Completed" : m.status === "SKIPPED" ? "Skipped" : "Upcoming");
+  const label = (m: any) =>
+    m.status === "LIVE"
+      ? "Live"
+      : m.id === nextId
+        ? "Up next"
+        : m.status === "COMPLETED"
+          ? "Completed"
+          : m.status === "SKIPPED"
+            ? "Skipped"
+            : "Upcoming";
 
   return (
     <AppShell title={t.name}>
@@ -167,8 +241,12 @@ function TournamentPage() {
         <TabsContent value="schedule">
           {isOrganizer && t.type === "LEAGUE" && t.status === "LIVE" && (
             <div className="mb-3 flex items-center gap-3">
-              <Button size="sm" variant="secondary" onClick={rebalance}><Scale className="h-4 w-4" /> Rebalance upcoming matches</Button>
-              <span className="text-xs text-muted-foreground">Reorders only upcoming matches; completed, live and skipped matches stay put.</span>
+              <Button size="sm" variant="secondary" onClick={rebalance}>
+                <Scale className="h-4 w-4" /> Rebalance upcoming matches
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Reorders only upcoming matches; completed, live and skipped matches stay put.
+              </span>
             </div>
           )}
           <ol className="space-y-2">
@@ -307,7 +385,10 @@ function TournamentPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">Top 2 play the League Final (Best of 1). The final does not change this table. PD counts each game's margin, except a deuce game (loser on 20+), which counts as ±1.</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Top 2 play the League Final (Best of 1). The final does not change this table. PD counts
+            each game's margin, except a deuce game (loser on 20+), which counts as ±1.
+          </p>
         </TabsContent>
 
         <TabsContent value="bracket">
@@ -343,19 +424,27 @@ function TournamentPage() {
         <TabsContent value="teams">
           {isOrganizer && t.type === "KNOCKOUT" && (
             <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
-              <Button size="sm" disabled><Plus className="h-4 w-4" /> Add team</Button>
+              <Button size="sm" disabled>
+                <Plus className="h-4 w-4" /> Add team
+              </Button>
               Teams can't be added to a knockout tournament after it starts.
             </div>
           )}
-          {isOrganizer && t.type === "LEAGUE" && (
-            canAddTeam ? (
-              <AddTeam tournamentId={id} usedPlayers={new Set(teams.flatMap((x: any) => [x.player1_id, x.player2_id]))} onDone={() => qc.invalidateQueries({ queryKey: ["tournament", id] })} />
+          {isOrganizer &&
+            t.type === "LEAGUE" &&
+            (canAddTeam ? (
+              <AddTeam
+                tournamentId={id}
+                usedPlayers={new Set(teams.flatMap((x: any) => [x.player1_id, x.player2_id]))}
+                onDone={() => qc.invalidateQueries({ queryKey: ["tournament", id] })}
+              />
             ) : (
               <p className="mb-4 rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
-                {t.status === "COMPLETED" ? "This league is finished." : "The League Final is scheduled, so teams can no longer be added."}
+                {t.status === "COMPLETED"
+                  ? "This league is finished."
+                  : "The League Final is scheduled, so teams can no longer be added."}
               </p>
-            )
-          )}
+            ))}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {teams.map((x: any) => (
               <div key={x.id} className="rounded-xl border bg-card p-4">

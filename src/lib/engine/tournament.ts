@@ -20,7 +20,11 @@ export const pairingKey = (pairs: [string, string][]) =>
 /** Random doubles pairs. Locked pairs stay; avoids repeating `previousKey` when possible. */
 export function randomTeams(
   players: string[],
-  opts: { locked?: [string, string][]; previousKey?: string | undefined; rng?: Rng | undefined } = {},
+  opts: {
+    locked?: [string, string][];
+    previousKey?: string | undefined;
+    rng?: Rng | undefined;
+  } = {},
 ): [string, string][] {
   if (players.length < 2) throw new Error("At least 2 players are required.");
   if (players.length % 2 !== 0) throw new Error("Doubles teams require an even number of players.");
@@ -110,7 +114,7 @@ export function scheduleCost(seq: readonly Fixture[]): number {
     const mean = g.reduce((s, x) => s + x, 0) / g.length;
     for (const x of g) {
       if (x === 1) cost += 10000;
-      cost += 50 / (x * x) + 20 * (x - mean) ** 2 / g.length;
+      cost += 50 / (x * x) + (20 * (x - mean) ** 2) / g.length;
     }
     mins.push(Math.min(...g));
   }
@@ -135,7 +139,8 @@ export function scheduleLeague(
   const rng = opts.rng ?? Math.random;
   const slots: (Fixture | null)[] = opts.fixed ? [...opts.fixed] : free.map(() => null);
   const freeIdx = slots.flatMap((s, i) => (s === null ? [i] : []));
-  if (freeIdx.length !== free.length) throw new Error("Number of open slots must match the fixtures to place.");
+  if (freeIdx.length !== free.length)
+    throw new Error("Number of open slots must match the fixtures to place.");
 
   // Greedy: fill each open slot with the fixture whose teams have rested longest.
   const remaining = shuffle(free, rng);
@@ -147,9 +152,12 @@ export function scheduleLeague(
     return 1000;
   };
   for (const at of freeIdx) {
-    let best = 0, bestScore = -Infinity;
+    let best = 0,
+      bestScore = -Infinity;
     remaining.forEach((f, k) => {
-      const score = Math.min(restOf(f[0], at), restOf(f[1], at)) * 10 + Math.min(restOf(f[0], at) + restOf(f[1], at), 200) / 100;
+      const score =
+        Math.min(restOf(f[0], at), restOf(f[1], at)) * 10 +
+        Math.min(restOf(f[0], at) + restOf(f[1], at), 200) / 100;
       if (score > bestScore) {
         bestScore = score;
         best = k;
@@ -232,7 +240,13 @@ export const gamePointDiff = (winnerPts: number, loserPts: number) =>
 /** Signed point difference for team A of one match (team B's is the negative). */
 export function matchPointDiff(r: Pick<ResultRow, "pointsA" | "pointsB" | "games">): number {
   if (!r.games?.length) return r.pointsA - r.pointsB;
-  return r.games.reduce((s, g) => (g.A === g.B ? s : s + Math.sign(g.A - g.B) * gamePointDiff(Math.max(g.A, g.B), Math.min(g.A, g.B))), 0);
+  return r.games.reduce(
+    (s, g) =>
+      g.A === g.B
+        ? s
+        : s + Math.sign(g.A - g.B) * gamePointDiff(Math.max(g.A, g.B), Math.min(g.A, g.B)),
+    0,
+  );
 }
 
 export interface StandingRow {
@@ -260,9 +274,12 @@ export function standings(teams: string[], results: ResultRow[]): StandingRow[] 
     B.scored += r.pointsB;
     B.conceded += r.pointsA;
     const [W, L] = r.winner === r.a ? [A, B] : [B, A];
-    W.w++; W.points += 2; L.l++;
+    W.w++;
+    W.points += 2;
+    L.l++;
     const d = matchPointDiff(r);
-    A.pd += d; B.pd -= d;
+    A.pd += d;
+    B.pd -= d;
   }
   const rows = [...map.values()];
   const h2h = (x: string, y: string) => {

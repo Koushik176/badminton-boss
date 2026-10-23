@@ -7,9 +7,13 @@ const S = z.object({
   players: z.tuple([z.string().min(1).max(36), z.string().min(1).max(36)]),
 });
 export const Route = createFileRoute("/api/tournaments/$id/teams")({
-  server: { handlers: { POST: handle(async ({ request, params }) => {
-    await requireOrganizer(request);
-    const b = await body(request, S);
-    return json(await addTeam(params.id, b), 201);
-  }) } },
+  server: {
+    handlers: {
+      POST: handle(async ({ request, params }) => {
+        await requireOrganizer(request);
+        const b = await body(request, S);
+        return json(await addTeam(params.id, b), 201);
+      }),
+    },
+  },
 });

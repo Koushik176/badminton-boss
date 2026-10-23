@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { applyAction, createMatch, replay, undoLast, EngineError, type MatchAction } from "./scoring";
+import {
+  applyAction,
+  createMatch,
+  replay,
+  undoLast,
+  EngineError,
+  type MatchAction,
+} from "./scoring";
 import {
   buildTeams,
   gamePointDiff,
@@ -30,10 +37,15 @@ const backToBack = (seq: Fixture[]) => {
 describe("switch ends", () => {
   const live = () =>
     applyAction(createMatch({ teamA: ["a1", "a2"], teamB: ["b1", "b2"], teamASide: "bottom" }), {
-      type: "SERVER_SELECTED", servingTeam: "A", serverId: "a1", receiverId: "b1",
+      type: "SERVER_SELECTED",
+      servingTeam: "A",
+      serverId: "a1",
+      receiverId: "b1",
     });
   it("swaps only the sides", () => {
-    const s = applyAction(applyAction(live(), { type: "RALLY_WON", team: "A" }), { type: "SWITCH_ENDS" });
+    const s = applyAction(applyAction(live(), { type: "RALLY_WON", team: "A" }), {
+      type: "SWITCH_ENDS",
+    });
     const before = applyAction(live(), { type: "RALLY_WON", team: "A" });
     expect(s.sides).toEqual({ A: "top", B: "bottom" });
     expect({ ...s, sides: before.sides }).toEqual(before);
@@ -65,7 +77,8 @@ describe("league scheduling", () => {
     });
   }
   it("avoids consecutive appearances where possible (6+ teams)", () => {
-    for (const n of [6, 8, 10]) expect(backToBack(scheduleLeague(roundRobin(ids(n)), { rng: seededRng(7) }))).toBe(0);
+    for (const n of [6, 8, 10])
+      expect(backToBack(scheduleLeague(roundRobin(ids(n)), { rng: seededRng(7) }))).toBe(0);
   });
   it("is much better than a random order and deterministic per seed", () => {
     const pairs = roundRobin(ids(8));
@@ -85,8 +98,20 @@ describe("league scheduling", () => {
 });
 
 describe("planRebalance", () => {
-  const row = (id: string, a: string, b: string, status: string, order: number, kind = "LEAGUE") => ({
-    id, kind, status, team_a_id: a, team_b_id: b, play_order: order,
+  const row = (
+    id: string,
+    a: string,
+    b: string,
+    status: string,
+    order: number,
+    kind = "LEAGUE",
+  ) => ({
+    id,
+    kind,
+    status,
+    team_a_id: a,
+    team_b_id: b,
+    play_order: order,
   });
   it("moves only upcoming league matches, within their own slots", () => {
     const rows = [
@@ -114,11 +139,22 @@ describe("knockout bracket", () => {
 
 describe("point difference", () => {
   const one = (a: number, b: number): ResultRow => ({
-    a: "X", b: "Y", winner: a > b ? "X" : "Y", pointsA: a, pointsB: b, games: [{ A: a, B: b }],
+    a: "X",
+    b: "Y",
+    winner: a > b ? "X" : "Y",
+    pointsA: a,
+    pointsB: b,
+    games: [{ A: a, B: b }],
   });
-  const pd = (a: number, b: number) => standings(["X", "Y"], [one(a, b)]).find((r) => r.team === "X")!.pd;
+  const pd = (a: number, b: number) =>
+    standings(["X", "Y"], [one(a, b)]).find((r) => r.team === "X")!.pd;
   it.each([
-    [21, 19, 2], [22, 20, 1], [23, 21, 1], [22, 21, 1], [30, 29, 1], [21, 10, 11],
+    [21, 19, 2],
+    [22, 20, 1],
+    [23, 21, 1],
+    [22, 21, 1],
+    [30, 29, 1],
+    [21, 10, 11],
   ])("%i-%i gives winner +%i and loser -%i", (w, l, d) => {
     expect(gamePointDiff(w, l)).toBe(d);
     const rows = standings(["X", "Y"], [one(w, l)]);
@@ -127,7 +163,18 @@ describe("point difference", () => {
     expect(pd(l, w)).toBe(-d);
   });
   it("keeps real points for/against and sums per game in best-of-3", () => {
-    const r: ResultRow = { a: "X", b: "Y", winner: "X", pointsA: 21 + 19 + 22, pointsB: 19 + 21 + 20, games: [{ A: 21, B: 19 }, { A: 19, B: 21 }, { A: 22, B: 20 }] };
+    const r: ResultRow = {
+      a: "X",
+      b: "Y",
+      winner: "X",
+      pointsA: 21 + 19 + 22,
+      pointsB: 19 + 21 + 20,
+      games: [
+        { A: 21, B: 19 },
+        { A: 19, B: 21 },
+        { A: 22, B: 20 },
+      ],
+    };
     const x = standings(["X", "Y"], [r])[0]!;
     expect(x).toMatchObject({ team: "X", scored: 62, conceded: 60, pd: 2 - 2 + 1 });
   });
@@ -143,20 +190,33 @@ describe("buildTeams (locked pairs)", () => {
     expect(flat(t)).toEqual([...players].sort());
   });
   it("keeps several locked pairs unchanged", () => {
-    const locked: [string, string][] = [["T0", "T5"], ["T2", "T3"]];
+    const locked: [string, string][] = [
+      ["T0", "T5"],
+      ["T2", "T3"],
+    ];
     const t = buildTeams(players, locked, { rng: seededRng(2) });
     expect(t.filter((x) => x.locked).map((x) => x.players)).toEqual(locked);
     expect(flat(t)).toEqual([...players].sort());
   });
   it("does not randomize when all pairs are locked", () => {
-    const locked: [string, string][] = [["T0", "T1"], ["T2", "T3"], ["T4", "T5"], ["T6", "T7"]];
+    const locked: [string, string][] = [
+      ["T0", "T1"],
+      ["T2", "T3"],
+      ["T4", "T5"],
+      ["T6", "T7"],
+    ];
     const t = buildTeams(players, locked);
     expect(t.map((x) => x.players)).toEqual(locked);
     expect(t.every((x) => x.locked)).toBe(true);
   });
   it("rejects odd counts, duplicate players and unknown players", () => {
     expect(() => buildTeams(ids(5))).toThrow();
-    expect(() => buildTeams(players, [["T0", "T1"], ["T1", "T2"]])).toThrow();
+    expect(() =>
+      buildTeams(players, [
+        ["T0", "T1"],
+        ["T1", "T2"],
+      ]),
+    ).toThrow();
     expect(() => buildTeams(players, [["T0", "ZZ"]])).toThrow();
     expect(() => buildTeams(players, [["T0", "T0"]])).toThrow();
   });
@@ -165,13 +225,22 @@ describe("buildTeams (locked pairs)", () => {
 describe("result heading", () => {
   const ongoing = { status: "LIVE", champion_team_id: null };
   it("league match is a match winner, never the champion", () => {
-    expect(resultHeading({ kind: "LEAGUE", round_name: "League", winner_team_id: "a" }, ongoing)).toBe("Match Winner");
+    expect(
+      resultHeading({ kind: "LEAGUE", round_name: "League", winner_team_id: "a" }, ongoing),
+    ).toBe("Match Winner");
   });
   it("confirmed league final announces the champion", () => {
-    expect(resultHeading({ kind: "LEAGUE_FINAL", round_name: "League Final", winner_team_id: "a" }, { status: "COMPLETED", champion_team_id: "a" })).toBe("Tournament Champion");
+    expect(
+      resultHeading(
+        { kind: "LEAGUE_FINAL", round_name: "League Final", winner_team_id: "a" },
+        { status: "COMPLETED", champion_team_id: "a" },
+      ),
+    ).toBe("Tournament Champion");
   });
   it("knockout rounds keep their round wording", () => {
-    expect(resultHeading({ kind: "KNOCKOUT", round_name: "Semi Final", winner_team_id: "a" }, ongoing)).toBe("Semi Final · Winner");
+    expect(
+      resultHeading({ kind: "KNOCKOUT", round_name: "Semi Final", winner_team_id: "a" }, ongoing),
+    ).toBe("Semi Final · Winner");
   });
 });
 
@@ -185,7 +254,12 @@ describe("validateNewTeam", () => {
     players: ["p3", "p4"] as [string, string],
   };
   const code = (over: Record<string, unknown>) => {
-    try { validateNewTeam({ ...base, ...over } as typeof base); return 200; } catch (e) { return (e as HttpError).status; }
+    try {
+      validateNewTeam({ ...base, ...over } as typeof base);
+      return 200;
+    } catch (e) {
+      return (e as HttpError).status;
+    }
   };
   it("accepts an eligible league and trims the name", () => {
     expect(validateNewTeam(base)).toBe("Smashers");
@@ -209,7 +283,11 @@ describe("validateNewTeam", () => {
 
 describe("organizer-only operations", () => {
   it("rejects requests without a valid organizer token", async () => {
-    await expect(requireOrganizer(new Request("http://x/api"))).rejects.toMatchObject({ status: 401 });
-    await expect(requireOrganizer(new Request("http://x/api", { headers: { authorization: "Bearer nope" } }))).rejects.toMatchObject({ status: 401 });
+    await expect(requireOrganizer(new Request("http://x/api"))).rejects.toMatchObject({
+      status: 401,
+    });
+    await expect(
+      requireOrganizer(new Request("http://x/api", { headers: { authorization: "Bearer nope" } })),
+    ).rejects.toMatchObject({ status: 401 });
   });
 });

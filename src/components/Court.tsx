@@ -58,7 +58,9 @@ export function Court({
   if (orientation === "vertical")
     return (
       <div className="mx-auto w-full max-w-md">
-        <p className="mb-1 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">{teamNames[top]}</p>
+        <p className="mb-1 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {teamNames[top]}
+        </p>
         <div className="overflow-hidden rounded-lg border-4 border-court-line bg-court">
           <div className="grid h-36 grid-cols-2 sm:h-44">
             <Box state={state} team={top} half="right" names={names} />
@@ -70,7 +72,9 @@ export function Court({
             <Box state={state} team={bottom} half="right" names={names} />
           </div>
         </div>
-        <p className="mt-1 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">{teamNames[bottom]}</p>
+        <p className="mt-1 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {teamNames[bottom]}
+        </p>
       </div>
     );
   // Left team faces east: its "left" court is the upper box. Right team faces west: its "left" court is the lower box.
