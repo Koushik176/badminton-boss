@@ -2,10 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Pause, Play, Undo2, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Pause, Play, RotateCw, Undo2, Trophy } from "lucide-react";
 import { api, useAuth } from "@/lib/api";
 import { applyAction, type MatchAction, type MatchState, type TeamKey } from "@/lib/engine/scoring";
-import { Court } from "@/components/Court";
+import { resultHeading } from "@/lib/engine/tournament";
+import { Court, type CourtOrientation } from "@/components/Court";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -39,6 +40,8 @@ function MatchPage() {
     queryFn: () => api(`/matches/${id}`),
   });
   const [busy, setBusy] = useState(false);
+  // View preference only: deliberately local and not persisted, so it resets on reload.
+  const [orientation, setOrientation] = useState<CourtOrientation>("horizontal");
 
   if (error)
     return (
@@ -112,18 +115,10 @@ function MatchPage() {
         {back}
         <div className="mt-6 rounded-2xl bg-court p-8 text-center text-court-line">
           <Trophy className="mx-auto h-10 w-10 text-accent" />
-          <p className="mt-2 text-sm uppercase tracking-widest opacity-80">
-            {match.round_name} · Winner
-          </p>
-          <p className="font-display text-4xl font-extrabold">
-            {match.winner_team_id === teamA.id ? teamA.name : teamB.name}
-          </p>
-          <p className="mt-4 font-display text-2xl tabular-nums">
-            {match.games.map((g: any) => `${g.A}–${g.B}`).join("  ·  ")}
-          </p>
-          <p className="mt-1 text-sm opacity-70">
-            {teamA.name} vs {teamB.name}
-          </p>
+          <p className="mt-2 text-sm uppercase tracking-widest opacity-80">{resultHeading(match, tournament)}</p>
+          <p className="font-display text-4xl font-extrabold">{match.winner_team_id === teamA.id ? teamA.name : teamB.name}</p>
+          <p className="mt-4 font-display text-2xl tabular-nums">{match.games.map((g: any) => `${g.A}–${g.B}`).join("  ·  ")}</p>
+          <p className="mt-1 text-sm opacity-70">{teamA.name} vs {teamB.name}</p>
         </div>
       </Wrap>
     );
@@ -149,6 +144,8 @@ function MatchPage() {
     );
 
   const over = state.status === "GAME_OVER" || state.status === "MATCH_OVER";
+  const topTeam: TeamKey = state.sides.A === "top" ? "A" : "B";
+  const bottomTeam: TeamKey = topTeam === "A" ? "B" : "A";
   return (
     <div className="min-h-screen bg-sidebar text-sidebar-foreground">
       <div className="mx-auto max-w-6xl p-3 md:p-6">
@@ -160,34 +157,35 @@ function MatchPage() {
         </div>
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              {(["A", "B"] as TeamKey[]).map((k) => (
-                <button
-                  key={k}
-                  disabled={!isOrganizer || state.status !== "LIVE" || busy}
-                  onClick={() => send({ type: "RALLY_WON", team: k })}
-                  className={`rounded-2xl p-4 text-center transition active:scale-95 disabled:opacity-90 ${state.servingTeam === k ? "bg-accent text-accent-foreground" : "bg-sidebar-accent"}`}
-                >
-                  <p className="truncate font-display text-lg font-bold uppercase">
-                    {teamNames[k]}
-                  </p>
-                  <p className="font-display text-8xl font-extrabold leading-none tabular-nums md:text-9xl">
-                    {state.score[k]}
-                  </p>
-                  <p className="text-xs uppercase tracking-wide opacity-70">
-                    Games {state.gamesWon[k]}
-                    {state.servingTeam === k ? " · Serving" : ""}
-                  </p>
-                  {isOrganizer && state.status === "LIVE" && (
-                    <p className="mt-2 rounded-lg bg-background/20 py-2 font-display text-2xl font-bold">
-                      +1
-                    </p>
-                  )}
-                </button>
-              ))}
+            {/* Left button = team on the top side, right button = team on the bottom side (state.sides is the only source). */}
+            <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 md:gap-3">
+              {([topTeam, bottomTeam] as TeamKey[]).flatMap((k, i) => {
+                const btn = (
+                  <button key={k} disabled={!isOrganizer || state.status !== "LIVE" || busy} onClick={() => send({ type: "RALLY_WON", team: k })}
+                    className={`min-w-0 rounded-2xl p-3 text-center transition active:scale-95 disabled:opacity-90 md:p-4 ${state.servingTeam === k ? "bg-accent text-accent-foreground" : "bg-sidebar-accent"}`}>
+                    <p className="truncate font-display text-lg font-bold uppercase">{teamNames[k]}</p>
+                    <p className="font-display text-7xl font-extrabold leading-none tabular-nums md:text-9xl">{state.score[k]}</p>
+                    <p className="text-xs uppercase tracking-wide opacity-70">Games {state.gamesWon[k]}{state.servingTeam === k ? " · Serving" : ""}</p>
+                    {isOrganizer && state.status === "LIVE" && <p className="mt-2 rounded-lg bg-background/20 py-2 font-display text-2xl font-bold">{teamNames[k]} +1</p>}
+                  </button>
+                );
+                return i === 0
+                  ? [btn, (
+                      <Button key="switch" variant="secondary" className="h-auto flex-col gap-1 px-2 md:px-4" aria-label="Switch ends"
+                        disabled={!isOrganizer || busy || (state.status !== "LIVE" && state.status !== "PAUSED")} onClick={() => send({ type: "SWITCH_ENDS" })}>
+                        <ArrowLeftRight className="h-5 w-5" /><span className="text-[10px] uppercase leading-tight">Switch<br />ends</span>
+                      </Button>
+                    )]
+                  : [btn];
+              })}
             </div>
             <div className="rounded-2xl bg-background p-4 text-foreground">
-              <Court state={state} names={names} teamNames={teamNames} />
+              <div className="mb-2 flex justify-end">
+                <Button variant="outline" size="sm" aria-label="Rotate court 90 degrees" onClick={() => setOrientation((o) => (o === "horizontal" ? "vertical" : "horizontal"))}>
+                  <RotateCw className="h-4 w-4" /> Rotate court
+                </Button>
+              </div>
+              <Court state={state} names={names} teamNames={teamNames} orientation={orientation} />
             </div>
           </div>
           <aside className="space-y-3">
