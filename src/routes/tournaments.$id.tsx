@@ -1,7 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ChevronsDown, Play, SkipForward, Trophy, Undo2 } from "lucide-react";
+import { useState } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronsDown,
+  Plus,
+  Play,
+  Scale,
+  SkipForward,
+  Trophy,
+  Undo2,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { api, useAuth } from "@/lib/api";
 import { AppShell, Empty, StatusBadge } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -25,41 +37,6 @@ export const Route = createFileRoute("/tournaments/$id")({
   }),
   component: TournamentPage,
 });
-
-type Team = {
-  id: string;
-  name: string;
-  player1_id: string;
-  player2_id: string;
-  p1name: string;
-  p2name: string;
-};
-
-type Game = { A: number; B: number };
-
-type Match = {
-  id: string;
-  status: string;
-  team_a_id: string | null;
-  team_b_id: string | null;
-  winner_team_id: string | null;
-  round: number;
-  round_name: string;
-  slot_index: number;
-  games: Game[];
-  live?: { score: Game } | null;
-};
-
-type Standing = {
-  team: string;
-  mp: number;
-  w: number;
-  l: number;
-  points: number;
-  scored: number;
-  conceded: number;
-  pd: number;
-};
 
 function TournamentPage() {
   const { id } = Route.useParams();
@@ -85,12 +62,10 @@ function TournamentPage() {
   const { tournament: t, teams, matches, standings } = data;
   const team = Object.fromEntries(teams.map((x: Team) => [x.id, x]));
   const tn = (tid: string | null) => (tid ? team[tid]?.name : "TBD");
-  const sched = matches.filter((m: Match) => m.status !== "BYE");
-  const live = sched.find((m: Match) => m.status === "LIVE");
-  const upcoming = sched.filter((m: Match) => m.status === "UPCOMING" || m.status === "SKIPPED");
-  const nextId = upcoming.find(
-    (m: Match) => m.status === "UPCOMING" && m.team_a_id && m.team_b_id,
-  )?.id;
+  const sched = matches.filter((m: any) => m.status !== "BYE");
+  const live = sched.find((m: any) => m.status === "LIVE");
+  const upcoming = sched.filter((m: any) => m.status === "UPCOMING" || m.status === "SKIPPED");
+  const nextId = upcoming.find((m: any) => m.status === "UPCOMING" && m.team_a_id && m.team_b_id)?.id;
 
   async function op(mid: string, o: string) {
     try {
@@ -100,16 +75,7 @@ function TournamentPage() {
       toast.error((e as Error).message);
     }
   }
-  const label = (m: Match) =>
-    m.status === "LIVE"
-      ? "Live"
-      : m.id === nextId
-        ? "Up next"
-        : m.status === "COMPLETED"
-          ? "Completed"
-          : m.status === "SKIPPED"
-            ? "Skipped"
-            : "Upcoming";
+  const label = (m: any) => (m.status === "LIVE" ? "Live" : m.id === nextId ? "Up next" : m.status === "COMPLETED" ? "Completed" : m.status === "SKIPPED" ? "Skipped" : "Upcoming");
 
   return (
     <AppShell title={t.name}>
@@ -153,6 +119,16 @@ function TournamentPage() {
         </TabsList>
 
         <TabsContent value="schedule">
+          {isOrganizer && t.type === "LEAGUE" && t.status === "LIVE" && (
+            <div className="mb-3 flex items-center gap-3">
+              <Button size="sm" variant="secondary" onClick={rebalance}>
+                <Scale className="h-4 w-4" /> Rebalance upcoming matches
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Reorders only upcoming matches; completed, live and skipped matches stay put.
+              </span>
+            </div>
+          )}
           <ol className="space-y-2">
             {sched.map((m: Match) => {
               const editable = isOrganizer && (m.status === "UPCOMING" || m.status === "SKIPPED");
@@ -191,11 +167,7 @@ function TournamentPage() {
                         {tn(m.team_b_id)}
                       </span>
                     </Link>
-                    {m.status === "COMPLETED" && (
-                      <span className="font-display tabular-nums">
-                        {m.games.map((g: Game) => `${g.A}-${g.B}`).join(", ")}
-                      </span>
-                    )}
+                    {m.status === "COMPLETED" && <span className="font-display tabular-nums">{m.games.map((g: any) => `${g.A}-${g.B}`).join(", ")}</span>}
                     {editable && (
                       <div className="flex gap-1">
                         {m.team_a_id && m.team_b_id && (
@@ -289,42 +261,53 @@ function TournamentPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Top 2 play the League Final (Best of 1). The final does not change this table.
-          </p>
+          <p className="mt-2 text-xs text-muted-foreground">Top 2 play the League Final (Best of 1). The final does not change this table.</p>
         </TabsContent>
 
         <TabsContent value="bracket">
           <div className="flex gap-4 overflow-x-auto pb-2">
             {[...new Set(matches.map((m: Match) => m.round))].sort().map((r) => (
               <div key={r as number} className="flex min-w-56 flex-col justify-around gap-3">
-                <p className="text-center text-xs font-bold uppercase text-muted-foreground">
-                  {matches.find((m: Match) => m.round === r)?.round_name}
-                </p>
-                {matches
-                  .filter((m: Match) => m.round === r)
-                  .sort((a: Match, b: Match) => a.slot_index - b.slot_index)
-                  .map((m: Match) => (
-                    <div key={m.id} className="rounded-lg border bg-card text-sm">
-                      {[m.team_a_id, m.team_b_id].map((tid, k) => (
-                        <div
-                          key={k}
-                          className={`flex justify-between px-3 py-2 ${k ? "border-t" : ""} ${tid && tid === m.winner_team_id ? "font-bold text-primary" : ""}`}
-                        >
-                          <span>{m.status === "BYE" && k === 1 ? "BYE" : tn(tid)}</span>
-                          <span className="tabular-nums">
-                            {m.games.map((g: Game) => (k ? g.B : g.A)).join(" ")}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
+                <p className="text-center text-xs font-bold uppercase text-muted-foreground">{matches.find((m: any) => m.round === r)?.round_name}</p>
+                {matches.filter((m: any) => m.round === r).sort((a: any, b: any) => a.slot_index - b.slot_index).map((m: any) => (
+                  <div key={m.id} className="rounded-lg border bg-card text-sm">
+                    {[m.team_a_id, m.team_b_id].map((tid, k) => (
+                      <div key={k} className={`flex justify-between px-3 py-2 ${k ? "border-t" : ""} ${tid && tid === m.winner_team_id ? "font-bold text-primary" : ""}`}>
+                        <span>{m.status === "BYE" && k === 1 ? "BYE" : tn(tid)}</span>
+                        <span className="tabular-nums">{m.games.map((g: any) => (k ? g.B : g.A)).join(" ")}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
         </TabsContent>
 
         <TabsContent value="teams">
+          {isOrganizer && t.type === "KNOCKOUT" && (
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+              <Button size="sm" disabled>
+                <Plus className="h-4 w-4" /> Add team
+              </Button>
+              Teams can't be added to a knockout tournament after it starts.
+            </div>
+          )}
+          {isOrganizer &&
+            t.type === "LEAGUE" &&
+            (canAddTeam ? (
+              <AddTeam
+                tournamentId={id}
+                usedPlayers={new Set(teams.flatMap((x: any) => [x.player1_id, x.player2_id]))}
+                onDone={() => qc.invalidateQueries({ queryKey: ["tournament", id] })}
+              />
+            ) : (
+              <p className="mb-4 rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+                {t.status === "COMPLETED"
+                  ? "This league is finished."
+                  : "The League Final is scheduled, so teams can no longer be added."}
+              </p>
+            ))}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {teams.map((x: Team) => (
               <div key={x.id} className="rounded-xl border bg-card p-4">
@@ -344,24 +327,14 @@ function TournamentPage() {
         </TabsContent>
 
         <TabsContent value="results">
-          {matches.filter((m: Match) => m.status === "COMPLETED").length === 0 ? (
-            <Empty title="No results yet" />
-          ) : (
+          {matches.filter((m: any) => m.status === "COMPLETED").length === 0 ? <Empty title="No results yet" /> : (
             <ul className="divide-y rounded-xl border bg-card">
-              {matches
-                .filter((m: Match) => m.status === "COMPLETED")
-                .map((m: Match) => (
-                  <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-                    <span>
-                      <span className="text-xs text-muted-foreground">{m.round_name} · </span>
-                      <b>{tn(m.winner_team_id)}</b> beat{" "}
-                      {tn(m.winner_team_id === m.team_a_id ? m.team_b_id : m.team_a_id)}
-                    </span>
-                    <span className="font-display tabular-nums">
-                      {m.games.map((g: Game) => `${g.A}-${g.B}`).join(", ")}
-                    </span>
-                  </li>
-                ))}
+              {matches.filter((m: any) => m.status === "COMPLETED").map((m: any) => (
+                <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                  <span><span className="text-xs text-muted-foreground">{m.round_name} · </span><b>{tn(m.winner_team_id)}</b> beat {tn(m.winner_team_id === m.team_a_id ? m.team_b_id : m.team_a_id)}</span>
+                  <span className="font-display tabular-nums">{m.games.map((g: any) => `${g.A}-${g.B}`).join(", ")}</span>
+                </li>
+              ))}
             </ul>
           )}
         </TabsContent>

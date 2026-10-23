@@ -14,6 +14,7 @@ const S = z.object({
     }),
     z.object({ type: z.literal("MATCH_PAUSED") }),
     z.object({ type: z.literal("MATCH_RESUMED") }),
+    z.object({ type: z.literal("SWITCH_ENDS") }),
     z.object({ type: z.literal("UNDO") }),
   ]),
 });

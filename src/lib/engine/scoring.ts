@@ -41,7 +41,8 @@ export type MatchAction =
   | { type: "RALLY_WON"; team: TeamKey }
   | { type: "GAME_STARTED"; serverId: string; receiverId: string }
   | { type: "MATCH_PAUSED" }
-  | { type: "MATCH_RESUMED" };
+  | { type: "MATCH_RESUMED" }
+  | { type: "SWITCH_ENDS" };
 
 export class EngineError extends Error {}
 
@@ -150,6 +151,11 @@ export function applyAction(state: MatchState, action: MatchAction): MatchState 
     case "MATCH_RESUMED":
       if (state.status !== "PAUSED") throw new EngineError("Match is not paused.");
       return { ...state, status: "LIVE" };
+    case "SWITCH_ENDS":
+      // Only the court ends change; score, server, receiver and service courts stay as they are.
+      if (state.status !== "LIVE" && state.status !== "PAUSED")
+        throw new EngineError("Ends can only be switched during a game.");
+      return { ...state, sides: { A: state.sides.B, B: state.sides.A } };
     case "RALLY_WON":
       return rallyWon(state, action.team);
   }
