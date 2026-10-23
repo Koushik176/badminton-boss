@@ -1,4 +1,4 @@
-import { q, exec, uid, transaction, type Stmt } from "./db";
+import { q, exec, uid, transaction, withTransaction, type Stmt } from "./db";
 import { HttpError } from "./http";
 import {
   applyAction,
@@ -10,7 +10,15 @@ import {
   type TeamKey,
   type CourtSide,
 } from "../engine/scoring";
-import { roundName, standings, type ResultRow } from "../engine/tournament";
+import {
+  matchPointDiff,
+  roundName,
+  scheduleLeague,
+  standings,
+  type Fixture,
+  type ResultRow,
+  type Rng,
+} from "../engine/tournament";
 
 /* ---------------- tournaments ---------------- */
 
@@ -174,6 +182,7 @@ const toResult = (m: any): ResultRow => ({
   winner: m.winner_team_id,
   pointsA: Number(m.score_a_total),
   pointsB: Number(m.score_b_total),
+  games: m.games,
 });
 
 async function finishTournament(tid: string, champion: string, runnerUp: string) {
@@ -229,7 +238,7 @@ export async function getMatch(id: string) {
     `SELECT t.id,t.name,t.player1_id,t.player2_id,p1.name p1name,p2.name p2name FROM teams t JOIN players p1 ON p1.id=t.player1_id JOIN players p2 ON p2.id=t.player2_id WHERE t.id IN (?,?)`,
     [m.team_a_id ?? "-", m.team_b_id ?? "-"],
   );
-  const [t] = await q(`SELECT id,name,type,status FROM tournaments WHERE id=?`, [m.tournament_id]);
+  const [t] = await q(`SELECT id,name,type,status,champion_team_id FROM tournaments WHERE id=?`, [m.tournament_id]);
   const fmt = (tid: string | null) => {
     const x = teams.find((y) => y.id === tid);
     return x
@@ -435,9 +444,15 @@ export async function playerStats(filter: { since?: string | undefined; tourname
     ]),
   );
   for (const r of rows) {
+    // Same point-difference rule as the league table (a deuce game counts as one point).
+    const diffA = matchPointDiff({
+      pointsA: Number(r.score_a_total),
+      pointsB: Number(r.score_b_total),
+      games: r.games_json ? JSON.parse(r.games_json) : undefined,
+    });
     const sides = [
-      { ids: [r.a1, r.a2], team: r.team_a_id, pf: Number(r.score_a_total), pa: Number(r.score_b_total) },
-      { ids: [r.b1, r.b2], team: r.team_b_id, pf: Number(r.score_b_total), pa: Number(r.score_a_total) },
+      { ids: [r.a1, r.a2], team: r.team_a_id, pf: Number(r.score_a_total), pa: Number(r.score_b_total), pd: diffA },
+      { ids: [r.b1, r.b2], team: r.team_b_id, pf: Number(r.score_b_total), pa: Number(r.score_a_total), pd: -diffA },
     ];
     for (const s of sides)
       for (const pid of s.ids) {
@@ -448,6 +463,7 @@ export async function playerStats(filter: { since?: string | undefined; tourname
         else st.losses++;
         st.pointsFor += s.pf;
         st.pointsAgainst += s.pa;
+        st.pd += s.pd;
       }
   }
   const tourIds = new Set(tours.map((t) => t.id));
@@ -463,8 +479,141 @@ export async function playerStats(filter: { since?: string | undefined; tourname
   }
   const stats = [...map.values()].map((s) => ({
     ...s,
-    pd: s.pointsFor - s.pointsAgainst,
     winPct: s.played ? Math.round((s.wins / s.played) * 100) : 0,
   }));
   return { stats, matches: rows };
+}
+
+/* ---------------- adding teams / rebalancing (league only) ---------------- */
+
+interface PlanRow {
+  id: string;
+  kind: string;
+  status: string;
+  team_a_id: string | null;
+  team_b_id: string | null;
+  play_order: number;
+}
+
+/**
+ * Re-orders only eligible matches (UPCOMING league fixtures) inside the slots they already occupy.
+ * Completed, live, skipped (organizer-protected) and final matches keep their position and act as
+ * rest context. Returns the new play_order for each eligible match id.
+ */
+export function planRebalance(rows: PlanRow[], rng?: Rng): Map<string, number> {
+  const sorted = [...rows].sort((a, b) => a.play_order - b.play_order);
+  const eligible = (r: PlanRow) => r.kind === "LEAGUE" && r.status === "UPCOMING" && !!r.team_a_id && !!r.team_b_id;
+  const fixed = sorted.map((r): Fixture | null => (eligible(r) ? null : [r.team_a_id ?? `-${r.id}`, r.team_b_id ?? `-${r.id}`]));
+  const free = sorted.filter(eligible).map((r): Fixture => [r.team_a_id!, r.team_b_id!]);
+  const ordered = scheduleLeague(free, { fixed, ...(rng ? { rng } : {}) });
+  const byPair = new Map<string, PlanRow[]>();
+  for (const r of sorted.filter(eligible)) {
+    const k = [r.team_a_id, r.team_b_id].sort().join("|");
+    byPair.set(k, [...(byPair.get(k) ?? []), r]);
+  }
+  const out = new Map<string, number>();
+  sorted.forEach((slot, i) => {
+    if (fixed[i] !== null) return;
+    const f = ordered[i]!;
+    const row = byPair.get([...f].sort().join("|"))!.shift()!;
+    out.set(row.id, slot.play_order);
+  });
+  return out;
+}
+
+/** Backend rules for adding a team. Pure so every rejection is unit-testable. Returns the cleaned name. */
+export function validateNewTeam(ctx: {
+  tournament: { type: string; status: string } | undefined;
+  teams: { name: string; player1_id: string; player2_id: string }[];
+  hasFinal: boolean;
+  knownPlayerIds: string[];
+  name: string;
+  players: [string, string];
+}): string {
+  const { tournament: t } = ctx;
+  if (!t) throw new HttpError(404, "Tournament not found");
+  if (t.type !== "LEAGUE")
+    throw new HttpError(409, "Teams cannot be added to a knockout tournament after it has started.");
+  if (t.status !== "LIVE") throw new HttpError(409, "This tournament is finished; teams can no longer be added.");
+  if (ctx.hasFinal) throw new HttpError(409, "The League Final is already scheduled; teams can no longer be added.");
+  const name = ctx.name.trim();
+  if (!name || name.length > 100) throw new HttpError(400, "Enter a team name (up to 100 characters).");
+  const [p1, p2] = ctx.players;
+  if (p1 === p2) throw new HttpError(400, "A team needs two different players.");
+  if (!ctx.knownPlayerIds.includes(p1) || !ctx.knownPlayerIds.includes(p2)) throw new HttpError(400, "Unknown player selected.");
+  if (ctx.teams.some((x) => [x.player1_id, x.player2_id].some((id) => id === p1 || id === p2)))
+    throw new HttpError(409, "This player is already assigned to another team.");
+  if (ctx.teams.some((x) => x.name.trim().toLowerCase() === name.toLowerCase()))
+    throw new HttpError(409, "Team names must be unique within the tournament.");
+  return name;
+}
+
+export async function addTeam(tournamentId: string, input: { name: string; players: [string, string] }, rng?: Rng) {
+  const teamId = await withTransaction(async (tx) => {
+    // Lock the tournament row so concurrent/retried requests are serialised and re-validated.
+    const [t] = await tx.execute(`SELECT id,type,status,format FROM tournaments WHERE id=? FOR UPDATE`, [tournamentId]);
+    const teams = await tx.execute(`SELECT id,name,player1_id,player2_id FROM teams WHERE tournament_id=?`, [tournamentId]);
+    const matches: PlanRow[] = await tx.execute(
+      `SELECT id,kind,status,team_a_id,team_b_id,play_order FROM matches WHERE tournament_id=?`,
+      [tournamentId],
+    );
+    const known = await tx.execute(`SELECT id FROM players WHERE id IN (?,?)`, input.players);
+    const name = validateNewTeam({
+      tournament: t,
+      teams,
+      hasFinal: matches.some((m) => m.kind === "LEAGUE_FINAL"),
+      knownPlayerIds: known.map((p: { id: string }) => p.id),
+      name: input.name,
+      players: input.players,
+    });
+    const newId = uid();
+    await tx.execute(`INSERT INTO teams (id,tournament_id,name,player1_id,player2_id) VALUES (?,?,?,?,?)`, [
+      newId,
+      tournamentId,
+      name,
+      input.players[0],
+      input.players[1],
+    ]);
+    // One new fixture per existing team, appended and then balanced among the upcoming slots.
+    let order = matches.reduce((mx, m) => Math.max(mx, Number(m.play_order)), 0);
+    const fresh: PlanRow[] = teams.map((x: { id: string }) => ({
+      id: uid(), kind: "LEAGUE", status: "UPCOMING", team_a_id: x.id, team_b_id: newId, play_order: ++order,
+    }));
+    const plan = planRebalance(
+      [...matches.map((m) => ({ ...m, play_order: Number(m.play_order) })), ...fresh],
+      rng,
+    );
+    for (const f of fresh)
+      await tx.execute(
+        `INSERT INTO matches (id,tournament_id,kind,round,round_name,team_a_id,team_b_id,status,play_order,format) VALUES (?,?,'LEAGUE',1,'League',?,?,'UPCOMING',?,?)`,
+        [f.id, tournamentId, f.team_a_id, f.team_b_id, plan.get(f.id) ?? f.play_order, Number(t.format)],
+      );
+    for (const m of matches) {
+      const next = plan.get(m.id);
+      if (next !== undefined && next !== Number(m.play_order))
+        await tx.execute(`UPDATE matches SET play_order=? WHERE id=? AND status='UPCOMING'`, [next, m.id]);
+    }
+    return newId;
+  });
+  return { id: teamId, ...(await getTournament(tournamentId)) };
+}
+
+export async function rebalanceUpcoming(tournamentId: string, rng?: Rng) {
+  await withTransaction(async (tx) => {
+    const [t] = await tx.execute(`SELECT id,type,status FROM tournaments WHERE id=? FOR UPDATE`, [tournamentId]);
+    if (!t) throw new HttpError(404, "Tournament not found");
+    if (t.type !== "LEAGUE") throw new HttpError(409, "Only league schedules can be rebalanced.");
+    if (t.status !== "LIVE") throw new HttpError(409, "This tournament is finished.");
+    const matches: PlanRow[] = await tx.execute(
+      `SELECT id,kind,status,team_a_id,team_b_id,play_order FROM matches WHERE tournament_id=?`,
+      [tournamentId],
+    );
+    const plan = planRebalance(matches.map((m) => ({ ...m, play_order: Number(m.play_order) })), rng);
+    for (const m of matches) {
+      const next = plan.get(m.id);
+      if (next !== undefined && next !== Number(m.play_order))
+        await tx.execute(`UPDATE matches SET play_order=? WHERE id=? AND status='UPCOMING'`, [next, m.id]);
+    }
+  });
+  return getTournament(tournamentId);
 }

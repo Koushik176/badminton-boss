@@ -10,6 +10,7 @@ const S = z.object({
     z.object({ type: z.literal("GAME_STARTED"), serverId: z.string().max(36), receiverId: z.string().max(36) }),
     z.object({ type: z.literal("MATCH_PAUSED") }),
     z.object({ type: z.literal("MATCH_RESUMED") }),
+    z.object({ type: z.literal("SWITCH_ENDS") }),
     z.object({ type: z.literal("UNDO") }),
   ]),
 });

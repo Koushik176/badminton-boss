@@ -31,4 +31,20 @@ export async function transaction(stmts: Stmt[]): Promise<void> {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Tx = { execute: (sql: string, params?: unknown[]) => Promise<any> };
+
+/** Interactive transaction: reads and writes inside `fn` commit together or roll back together. */
+export async function withTransaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
+  const tx = await db().begin();
+  try {
+    const out = await fn(tx as unknown as Tx);
+    await tx.commit();
+    return out;
+  } catch (e) {
+    await tx.rollback().catch(() => {});
+    throw e;
+  }
+}
+
 export const uid = () => crypto.randomUUID();

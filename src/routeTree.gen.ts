@@ -32,6 +32,8 @@ import { Route as ApiMatchesIdActionRouteImport } from './routes/api/matches/$id
 import { Route as ApiMatchesIdConfirmRouteImport } from './routes/api/matches/$id/confirm'
 import { Route as ApiMatchesIdScheduleRouteImport } from './routes/api/matches/$id/schedule'
 import { Route as ApiMatchesIdStartRouteImport } from './routes/api/matches/$id/start'
+import { Route as ApiTournamentsIdRebalanceRouteImport } from './routes/api/tournaments/$id/rebalance'
+import { Route as ApiTournamentsIdTeamsRouteImport } from './routes/api/tournaments/$id/teams'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -148,6 +150,17 @@ const ApiMatchesIdStartRoute = ApiMatchesIdStartRouteImport.update({
   path: '/start',
   getParentRoute: () => ApiMatchesIdRoute,
 } as any)
+const ApiTournamentsIdRebalanceRoute =
+  ApiTournamentsIdRebalanceRouteImport.update({
+    id: '/rebalance',
+    path: '/rebalance',
+    getParentRoute: () => ApiTournamentsIdRoute,
+  } as any)
+const ApiTournamentsIdTeamsRoute = ApiTournamentsIdTeamsRouteImport.update({
+  id: '/teams',
+  path: '/teams',
+  getParentRoute: () => ApiTournamentsIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -168,11 +181,13 @@ export interface FileRoutesByFullPath {
   '/api/auth/status': typeof ApiAuthStatusRoute
   '/api/matches/$id': typeof ApiMatchesIdRouteWithChildren
   '/api/players/$id': typeof ApiPlayersIdRoute
-  '/api/tournaments/$id': typeof ApiTournamentsIdRoute
+  '/api/tournaments/$id': typeof ApiTournamentsIdRouteWithChildren
   '/api/matches/$id/action': typeof ApiMatchesIdActionRoute
   '/api/matches/$id/confirm': typeof ApiMatchesIdConfirmRoute
   '/api/matches/$id/schedule': typeof ApiMatchesIdScheduleRoute
   '/api/matches/$id/start': typeof ApiMatchesIdStartRoute
+  '/api/tournaments/$id/rebalance': typeof ApiTournamentsIdRebalanceRoute
+  '/api/tournaments/$id/teams': typeof ApiTournamentsIdTeamsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -193,11 +208,13 @@ export interface FileRoutesByTo {
   '/api/auth/status': typeof ApiAuthStatusRoute
   '/api/matches/$id': typeof ApiMatchesIdRouteWithChildren
   '/api/players/$id': typeof ApiPlayersIdRoute
-  '/api/tournaments/$id': typeof ApiTournamentsIdRoute
+  '/api/tournaments/$id': typeof ApiTournamentsIdRouteWithChildren
   '/api/matches/$id/action': typeof ApiMatchesIdActionRoute
   '/api/matches/$id/confirm': typeof ApiMatchesIdConfirmRoute
   '/api/matches/$id/schedule': typeof ApiMatchesIdScheduleRoute
   '/api/matches/$id/start': typeof ApiMatchesIdStartRoute
+  '/api/tournaments/$id/rebalance': typeof ApiTournamentsIdRebalanceRoute
+  '/api/tournaments/$id/teams': typeof ApiTournamentsIdTeamsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -219,11 +236,13 @@ export interface FileRoutesById {
   '/api/auth/status': typeof ApiAuthStatusRoute
   '/api/matches/$id': typeof ApiMatchesIdRouteWithChildren
   '/api/players/$id': typeof ApiPlayersIdRoute
-  '/api/tournaments/$id': typeof ApiTournamentsIdRoute
+  '/api/tournaments/$id': typeof ApiTournamentsIdRouteWithChildren
   '/api/matches/$id/action': typeof ApiMatchesIdActionRoute
   '/api/matches/$id/confirm': typeof ApiMatchesIdConfirmRoute
   '/api/matches/$id/schedule': typeof ApiMatchesIdScheduleRoute
   '/api/matches/$id/start': typeof ApiMatchesIdStartRoute
+  '/api/tournaments/$id/rebalance': typeof ApiTournamentsIdRebalanceRoute
+  '/api/tournaments/$id/teams': typeof ApiTournamentsIdTeamsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -251,6 +270,8 @@ export interface FileRouteTypes {
     | '/api/matches/$id/confirm'
     | '/api/matches/$id/schedule'
     | '/api/matches/$id/start'
+    | '/api/tournaments/$id/rebalance'
+    | '/api/tournaments/$id/teams'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -276,6 +297,8 @@ export interface FileRouteTypes {
     | '/api/matches/$id/confirm'
     | '/api/matches/$id/schedule'
     | '/api/matches/$id/start'
+    | '/api/tournaments/$id/rebalance'
+    | '/api/tournaments/$id/teams'
   id:
     | '__root__'
     | '/'
@@ -301,6 +324,8 @@ export interface FileRouteTypes {
     | '/api/matches/$id/confirm'
     | '/api/matches/$id/schedule'
     | '/api/matches/$id/start'
+    | '/api/tournaments/$id/rebalance'
+    | '/api/tournaments/$id/teams'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -486,6 +511,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMatchesIdStartRouteImport
       parentRoute: typeof ApiMatchesIdRoute
     }
+    '/api/tournaments/$id/rebalance': {
+      id: '/api/tournaments/$id/rebalance'
+      path: '/rebalance'
+      fullPath: '/api/tournaments/$id/rebalance'
+      preLoaderRoute: typeof ApiTournamentsIdRebalanceRouteImport
+      parentRoute: typeof ApiTournamentsIdRoute
+    }
+    '/api/tournaments/$id/teams': {
+      id: '/api/tournaments/$id/teams'
+      path: '/teams'
+      fullPath: '/api/tournaments/$id/teams'
+      preLoaderRoute: typeof ApiTournamentsIdTeamsRouteImport
+      parentRoute: typeof ApiTournamentsIdRoute
+    }
   }
 }
 
@@ -501,12 +540,25 @@ const ApiPlayersRouteWithChildren = ApiPlayersRoute._addFileChildren(
   ApiPlayersRouteChildren,
 )
 
+interface ApiTournamentsIdRouteChildren {
+  ApiTournamentsIdRebalanceRoute: typeof ApiTournamentsIdRebalanceRoute
+  ApiTournamentsIdTeamsRoute: typeof ApiTournamentsIdTeamsRoute
+}
+
+const ApiTournamentsIdRouteChildren: ApiTournamentsIdRouteChildren = {
+  ApiTournamentsIdRebalanceRoute: ApiTournamentsIdRebalanceRoute,
+  ApiTournamentsIdTeamsRoute: ApiTournamentsIdTeamsRoute,
+}
+
+const ApiTournamentsIdRouteWithChildren =
+  ApiTournamentsIdRoute._addFileChildren(ApiTournamentsIdRouteChildren)
+
 interface ApiTournamentsRouteChildren {
-  ApiTournamentsIdRoute: typeof ApiTournamentsIdRoute
+  ApiTournamentsIdRoute: typeof ApiTournamentsIdRouteWithChildren
 }
 
 const ApiTournamentsRouteChildren: ApiTournamentsRouteChildren = {
-  ApiTournamentsIdRoute: ApiTournamentsIdRoute,
+  ApiTournamentsIdRoute: ApiTournamentsIdRouteWithChildren,
 }
 
 const ApiTournamentsRouteWithChildren = ApiTournamentsRoute._addFileChildren(
