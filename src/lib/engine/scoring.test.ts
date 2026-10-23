@@ -1,10 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { applyAction, createMatch, replay, undoLast, type MatchAction, type MatchState, isGameWon } from "./scoring";
+import {
+  applyAction,
+  createMatch,
+  replay,
+  undoLast,
+  type MatchAction,
+  type MatchState,
+  isGameWon,
+} from "./scoring";
 import { randomTeams, roundRobin, knockoutBracket, standings, pairingKey } from "./tournament";
 
-const base = (format: 1 | 3 = 1) => createMatch({ teamA: ["rahul", "kiran"], teamB: ["arun", "vijay"], format });
+const base = (format: 1 | 3 = 1) =>
+  createMatch({ teamA: ["rahul", "kiran"], teamB: ["arun", "vijay"], format });
 const start = (format: 1 | 3 = 1) =>
-  applyAction(base(format), { type: "SERVER_SELECTED", servingTeam: "A", serverId: "rahul", receiverId: "arun" });
+  applyAction(base(format), {
+    type: "SERVER_SELECTED",
+    servingTeam: "A",
+    serverId: "rahul",
+    receiverId: "arun",
+  });
 const pts = (s: MatchState, seq: string) =>
   [...seq].reduce((st, c) => applyAction(st, { type: "RALLY_WON", team: c as "A" | "B" }), s);
 const setScore = (s: MatchState, a: number, b: number) => {
@@ -131,10 +145,13 @@ describe("tournament", () => {
     expect(b.slots.filter((s) => s.bye).length).toBe(6);
   });
   it("cumulative point difference", () => {
-    const t = standings(["A", "B", "C"], [
-      { a: "A", b: "B", winner: "A", pointsA: 21, pointsB: 17 },
-      { a: "A", b: "C", winner: "A", pointsA: 21, pointsB: 15 },
-    ]);
+    const t = standings(
+      ["A", "B", "C"],
+      [
+        { a: "A", b: "B", winner: "A", pointsA: 21, pointsB: 17 },
+        { a: "A", b: "C", winner: "A", pointsA: 21, pointsB: 15 },
+      ],
+    );
     expect(t[0]).toMatchObject({ team: "A", points: 4, pd: 10 });
   });
 });

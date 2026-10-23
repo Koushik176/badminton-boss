@@ -14,9 +14,15 @@ export const Route = createFileRoute("/tournaments/new")({
   head: () => ({
     meta: [
       { title: "New tournament — Smash Court" },
-      { name: "description", content: "Create a badminton doubles tournament: players, teams and fixtures." },
+      {
+        name: "description",
+        content: "Create a badminton doubles tournament: players, teams and fixtures.",
+      },
       { property: "og:title", content: "New tournament — Smash Court" },
-      { property: "og:description", content: "Create a badminton doubles tournament: players, teams and fixtures." },
+      {
+        property: "og:description",
+        content: "Create a badminton doubles tournament: players, teams and fixtures.",
+      },
     ],
   }),
   component: Wizard,
@@ -29,11 +35,20 @@ function Wizard() {
   const { isOrganizer, ready } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { data: players = [] } = useQuery({ queryKey: ["players"], queryFn: () => api<any[]>("/players") });
+  const { data: players = [] } = useQuery({
+    queryKey: ["players"],
+    queryFn: () => api<any[]>("/players"),
+  });
   const names = useMemo(() => Object.fromEntries(players.map((p) => [p.id, p.name])), [players]);
 
   const [step, setStep] = useState(0);
-  const [info, setInfo] = useState({ name: "", date: new Date().toISOString().slice(0, 10), location: "", type: "KNOCKOUT" as "KNOCKOUT" | "LEAGUE", format: 1 as 1 | 3 });
+  const [info, setInfo] = useState({
+    name: "",
+    date: new Date().toISOString().slice(0, 10),
+    location: "",
+    type: "KNOCKOUT" as "KNOCKOUT" | "LEAGUE",
+    format: 1 as 1 | 3,
+  });
   const [selected, setSelected] = useState<string[]>([]);
   const [newName, setNewName] = useState("");
   const [mode, setMode] = useState<"random" | "manual">("random");
@@ -43,7 +58,17 @@ function Wizard() {
   const [busy, setBusy] = useState(false);
 
   if (ready && !isOrganizer)
-    return <AppShell title="New tournament"><p>Please <Link to="/login" className="font-semibold text-primary underline">sign in as an organizer</Link> to create a tournament.</p></AppShell>;
+    return (
+      <AppShell title="New tournament">
+        <p>
+          Please{" "}
+          <Link to="/login" className="font-semibold text-primary underline">
+            sign in as an organizer
+          </Link>{" "}
+          to create a tournament.
+        </p>
+      </AppShell>
+    );
 
   const teamName = (p: [string, string]) => `${names[p[0]]} & ${names[p[1]]}`;
   const pairKey = (p: [string, string]) => [...p].sort().join("+");
@@ -108,7 +133,13 @@ function Wizard() {
     setBusy(true);
     try {
       const r = await api("/tournaments", {
-        body: { ...info, location: info.location || undefined, format: info.format, teams: teams.map((t) => ({ name: t.name.trim(), players: t.players })), fixtures },
+        body: {
+          ...info,
+          location: info.location || undefined,
+          format: info.format,
+          teams: teams.map((t) => ({ name: t.name.trim(), players: t.players })),
+          fixtures,
+        },
       });
       toast.success("Tournament is live!");
       qc.invalidateQueries();
@@ -123,21 +154,54 @@ function Wizard() {
     <AppShell title="New tournament">
       <ol className="mb-6 flex gap-1">
         {STEPS.map((s, i) => (
-          <li key={s} className={`flex-1 border-t-4 pt-2 text-xs font-semibold uppercase ${i <= step ? "border-primary text-foreground" : "border-muted text-muted-foreground"}`}>{s}</li>
+          <li
+            key={s}
+            className={`flex-1 border-t-4 pt-2 text-xs font-semibold uppercase ${i <= step ? "border-primary text-foreground" : "border-muted text-muted-foreground"}`}
+          >
+            {s}
+          </li>
         ))}
       </ol>
 
       <div className="rounded-2xl border bg-card p-5 md:p-8">
         {step === 0 && (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2"><Label>Tournament name</Label><Input value={info.name} onChange={(e) => setInfo({ ...info, name: e.target.value })} placeholder="Saturday Smash" /></div>
-            <div className="space-y-2"><Label>Date</Label><Input type="date" value={info.date} onChange={(e) => setInfo({ ...info, date: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Location</Label><Input value={info.location} onChange={(e) => setInfo({ ...info, location: e.target.value })} placeholder="Court name" /></div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Tournament name</Label>
+              <Input
+                value={info.name}
+                onChange={(e) => setInfo({ ...info, name: e.target.value })}
+                placeholder="Saturday Smash"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={info.date}
+                onChange={(e) => setInfo({ ...info, date: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Input
+                value={info.location}
+                onChange={(e) => setInfo({ ...info, location: e.target.value })}
+                placeholder="Court name"
+              />
+            </div>
             <div className="space-y-2">
               <Label>Type</Label>
               <div className="grid grid-cols-2 gap-2">
                 {(["KNOCKOUT", "LEAGUE"] as const).map((t) => (
-                  <Button key={t} type="button" variant={info.type === t ? "default" : "outline"} onClick={() => setInfo({ ...info, type: t })}>{t === "KNOCKOUT" ? "Knockout" : "League"}</Button>
+                  <Button
+                    key={t}
+                    type="button"
+                    variant={info.type === t ? "default" : "outline"}
+                    onClick={() => setInfo({ ...info, type: t })}
+                  >
+                    {t === "KNOCKOUT" ? "Knockout" : "League"}
+                  </Button>
                 ))}
               </div>
             </div>
@@ -145,10 +209,21 @@ function Wizard() {
               <Label>Match format</Label>
               <div className="grid grid-cols-2 gap-2">
                 {([1, 3] as const).map((f) => (
-                  <Button key={f} type="button" variant={info.format === f ? "default" : "outline"} onClick={() => setInfo({ ...info, format: f })}>Best of {f}</Button>
+                  <Button
+                    key={f}
+                    type="button"
+                    variant={info.format === f ? "default" : "outline"}
+                    onClick={() => setInfo({ ...info, format: f })}
+                  >
+                    Best of {f}
+                  </Button>
                 ))}
               </div>
-              {info.type === "LEAGUE" && <p className="text-xs text-muted-foreground">The League Final is always Best of 1.</p>}
+              {info.type === "LEAGUE" && (
+                <p className="text-xs text-muted-foreground">
+                  The League Final is always Best of 1.
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -156,18 +231,35 @@ function Wizard() {
         {step === 1 && (
           <div>
             <div className="mb-4 flex gap-2">
-              <Input placeholder="Add a new player" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), quickAdd())} />
-              <Button type="button" onClick={quickAdd}>Add</Button>
+              <Input
+                placeholder="Add a new player"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), quickAdd())}
+              />
+              <Button type="button" onClick={quickAdd}>
+                Add
+              </Button>
             </div>
-            <p className={`mb-3 text-sm font-medium ${selected.length % 2 ? "text-destructive" : "text-muted-foreground"}`}>
-              {selected.length} selected{selected.length % 2 ? " — doubles teams need an even number of players" : ""}{selected.length < 4 ? " — pick at least 4" : ""}
+            <p
+              className={`mb-3 text-sm font-medium ${selected.length % 2 ? "text-destructive" : "text-muted-foreground"}`}
+            >
+              {selected.length} selected
+              {selected.length % 2 ? " — doubles teams need an even number of players" : ""}
+              {selected.length < 4 ? " — pick at least 4" : ""}
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {players.map((p) => {
                 const on = selected.includes(p.id);
                 return (
-                  <button key={p.id} type="button" onClick={() => setSelected((s) => (on ? s.filter((x) => x !== p.id) : [...s, p.id]))}
-                    className={`flex items-center justify-between rounded-lg border px-3 py-3 text-left font-medium transition ${on ? "border-primary bg-primary text-primary-foreground" : "hover:border-primary"}`}>
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() =>
+                      setSelected((s) => (on ? s.filter((x) => x !== p.id) : [...s, p.id]))
+                    }
+                    className={`flex items-center justify-between rounded-lg border px-3 py-3 text-left font-medium transition ${on ? "border-primary bg-primary text-primary-foreground" : "hover:border-primary"}`}
+                  >
                     {p.name} {on && <Check className="h-4 w-4" />}
                   </button>
                 );
@@ -175,8 +267,22 @@ function Wizard() {
             </div>
             <div className="mt-6 flex gap-2">
               <span className="self-center text-sm font-medium">Teams:</span>
-              <Button type="button" size="sm" variant={mode === "random" ? "default" : "outline"} onClick={() => setMode("random")}>Random</Button>
-              <Button type="button" size="sm" variant={mode === "manual" ? "default" : "outline"} onClick={() => setMode("manual")}>Manual</Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "random" ? "default" : "outline"}
+                onClick={() => setMode("random")}
+              >
+                Random
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "manual" ? "default" : "outline"}
+                onClick={() => setMode("manual")}
+              >
+                Manual
+              </Button>
             </div>
           </div>
         )}
@@ -203,10 +309,20 @@ function Wizard() {
             ) : (
               unpaired.length > 0 && (
                 <div className="mb-4">
-                  <p className="mb-2 text-sm text-muted-foreground">Tap two players to pair them.</p>
+                  <p className="mb-2 text-sm text-muted-foreground">
+                    Tap two players to pair them.
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     {unpaired.map((id) => (
-                      <Button key={id} type="button" size="sm" variant={pick === id ? "default" : "outline"} onClick={() => manualTap(id)}>{names[id]}</Button>
+                      <Button
+                        key={id}
+                        type="button"
+                        size="sm"
+                        variant={pick === id ? "default" : "outline"}
+                        onClick={() => manualTap(id)}
+                      >
+                        {names[id]}
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -216,13 +332,38 @@ function Wizard() {
               {teams.map((t, i) => (
                 <div key={t.players.join()} className="rounded-xl border p-3">
                   <div className="flex gap-2">
-                    <Input value={t.name} onChange={(e) => setTeams((ts) => ts.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
+                    <Input
+                      value={t.name}
+                      onChange={(e) =>
+                        setTeams((ts) =>
+                          ts.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                        )
+                      }
+                    />
                     {mode === "random" ? (
-                      <Button type="button" size="icon" variant={t.locked ? "default" : "outline"} aria-label="Lock team" onClick={() => setTeams((ts) => ts.map((x, j) => (j === i ? { ...x, locked: !x.locked } : x)))}>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={t.locked ? "default" : "outline"}
+                        aria-label="Lock team"
+                        onClick={() =>
+                          setTeams((ts) =>
+                            ts.map((x, j) => (j === i ? { ...x, locked: !x.locked } : x)),
+                          )
+                        }
+                      >
                         {t.locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
                       </Button>
                     ) : (
-                      <Button type="button" size="icon" variant="outline" aria-label="Remove team" onClick={() => setTeams((ts) => ts.filter((_, j) => j !== i))}><X className="h-4 w-4" /></Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        aria-label="Remove team"
+                        onClick={() => setTeams((ts) => ts.filter((_, j) => j !== i))}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">{names[t.players[0]]} + {names[t.players[1]]}</p>
@@ -237,14 +378,30 @@ function Wizard() {
 
         {step === 3 && (
           <div>
-            <Button type="button" variant="secondary" className="mb-4" onClick={() => makeFixtures()}><Shuffle className="h-4 w-4" /> {info.type === "KNOCKOUT" ? "Reshuffle bracket" : "Reshuffle order"}</Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="mb-4"
+              onClick={() => makeFixtures()}
+            >
+              <Shuffle className="h-4 w-4" />{" "}
+              {info.type === "KNOCKOUT" ? "Reshuffle bracket" : "Reshuffle order"}
+            </Button>
             <ol className="space-y-2">
               {fixtures.map(([a, b], i) => (
                 <li key={i} className="flex items-center gap-3 rounded-lg border p-3">
-                  <span className="font-display text-lg font-bold text-muted-foreground">{i + 1}</span>
+                  <span className="font-display text-lg font-bold text-muted-foreground">
+                    {i + 1}
+                  </span>
                   <span className="font-medium">{teams[a]!.name}</span>
                   <span className="text-muted-foreground">vs</span>
-                  <span className="font-medium">{b === null ? <em className="text-muted-foreground">BYE — advances</em> : teams[b]!.name}</span>
+                  <span className="font-medium">
+                    {b === null ? (
+                      <em className="text-muted-foreground">BYE — advances</em>
+                    ) : (
+                      teams[b]!.name
+                    )}
+                  </span>
                 </li>
               ))}
             </ol>
@@ -253,20 +410,34 @@ function Wizard() {
 
         {step === 4 && (
           <div className="space-y-2 text-center">
-            <p className="font-display text-4xl font-extrabold uppercase text-primary">Tournament ready</p>
+            <p className="font-display text-4xl font-extrabold uppercase text-primary">
+              Tournament ready
+            </p>
             <p className="text-lg">{info.name}</p>
             <p className="text-muted-foreground">
-              {info.type === "LEAGUE" ? "League" : "Knockout"} · {teams.length} teams · Best of {info.format} · {info.date}
+              {info.type === "LEAGUE" ? "League" : "Knockout"} · {teams.length} teams · Best of{" "}
+              {info.format} · {info.date}
             </p>
           </div>
         )}
 
         <div className="mt-8 flex justify-between">
-          <Button type="button" variant="ghost" disabled={step === 0} onClick={() => setStep(step - 1)}>Back</Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={step === 0}
+            onClick={() => setStep(step - 1)}
+          >
+            Back
+          </Button>
           {step < 4 ? (
-            <Button type="button" disabled={!canNext} onClick={next}>Next</Button>
+            <Button type="button" disabled={!canNext} onClick={next}>
+              Next
+            </Button>
           ) : (
-            <Button type="button" size="lg" disabled={busy} onClick={create}>Start tournament</Button>
+            <Button type="button" size="lg" disabled={busy} onClick={create}>
+              Start tournament
+            </Button>
           )}
         </div>
       </div>

@@ -4,15 +4,27 @@ import { useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/stats")({
   head: () => ({
     meta: [
       { title: "Leaderboard — Smash Court" },
-      { name: "description", content: "Badminton leaderboards: wins, win rate, point difference and titles." },
+      {
+        name: "description",
+        content: "Badminton leaderboards: wins, win rate, point difference and titles.",
+      },
       { property: "og:title", content: "Leaderboard — Smash Court" },
-      { property: "og:description", content: "Badminton leaderboards: wins, win rate, point difference and titles." },
+      {
+        property: "og:description",
+        content: "Badminton leaderboards: wins, win rate, point difference and titles.",
+      },
     ],
   }),
   component: Stats,
@@ -37,7 +49,9 @@ function Stats() {
     <AppShell title="Leaderboard">
       <div className="mb-4 flex flex-wrap gap-2">
         <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All time</SelectItem>
             <SelectItem value="year">This year</SelectItem>
@@ -45,7 +59,9 @@ function Stats() {
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="wins">Most wins</SelectItem>
             <SelectItem value="winPct">Best win %</SelectItem>
@@ -67,15 +83,36 @@ function Stats() {
       <div className="overflow-x-auto rounded-xl border bg-card">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
-            <tr>{["#", "Player", "MP", "W", "L", "Win %", "PD", "Titles"].map((h) => <th key={h} className="p-3">{h}</th>)}</tr>
+            <tr>
+              {["#", "Player", "MP", "W", "L", "Win %", "PD", "Titles"].map((h) => (
+                <th key={h} className="p-3">
+                  {h}
+                </th>
+              ))}
+            </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.id} className="border-t">
                 <td className="p-3 font-display font-bold">{i + 1}</td>
-                <td className="p-3"><Link to="/players/$id" params={{ id: r.id }} className="font-medium hover:underline">{r.name}</Link></td>
-                <td className="p-3">{r.played}</td><td className="p-3">{r.wins}</td><td className="p-3">{r.losses}</td>
-                <td className="p-3">{r.winPct}%</td><td className="p-3">{r.pd > 0 ? "+" : ""}{r.pd}</td><td className="p-3">{r.titles}</td>
+                <td className="p-3">
+                  <Link
+                    to="/players/$id"
+                    params={{ id: r.id }}
+                    className="font-medium hover:underline"
+                  >
+                    {r.name}
+                  </Link>
+                </td>
+                <td className="p-3">{r.played}</td>
+                <td className="p-3">{r.wins}</td>
+                <td className="p-3">{r.losses}</td>
+                <td className="p-3">{r.winPct}%</td>
+                <td className="p-3">
+                  {r.pd > 0 ? "+" : ""}
+                  {r.pd}
+                </td>
+                <td className="p-3">{r.titles}</td>
               </tr>
             ))}
           </tbody>

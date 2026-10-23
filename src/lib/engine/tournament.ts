@@ -12,7 +12,10 @@ export function shuffle<T>(arr: readonly T[], rng: Rng = Math.random): T[] {
 }
 
 export const pairingKey = (pairs: [string, string][]) =>
-  pairs.map((p) => [...p].sort().join("+")).sort().join("|");
+  pairs
+    .map((p) => [...p].sort().join("+"))
+    .sort()
+    .join("|");
 
 /** Random doubles pairs. Locked pairs stay; avoids repeating `previousKey` when possible. */
 export function randomTeams(
@@ -204,7 +207,8 @@ export function knockoutBracket(teams: string[], rng: Rng = Math.random) {
     else slots.push({ round: 1, index: i, a: s[k++]!, b: s[k++]!, bye: false });
   }
   for (let r = 2; r <= rounds; r++)
-    for (let i = 0; i < size / 2 ** r; i++) slots.push({ round: r, index: i, a: null, b: null, bye: false });
+    for (let i = 0; i < size / 2 ** r; i++)
+      slots.push({ round: r, index: i, a: null, b: null, bye: false });
   return { rounds, slots };
 }
 
@@ -247,10 +251,14 @@ export function standings(teams: string[], results: ResultRow[]): StandingRow[] 
     teams.map((t) => [t, { team: t, mp: 0, w: 0, l: 0, points: 0, scored: 0, conceded: 0, pd: 0 }]),
   );
   for (const r of results) {
-    const A = map.get(r.a)!, B = map.get(r.b)!;
-    A.mp++; B.mp++;
-    A.scored += r.pointsA; A.conceded += r.pointsB;
-    B.scored += r.pointsB; B.conceded += r.pointsA;
+    const A = map.get(r.a)!,
+      B = map.get(r.b)!;
+    A.mp++;
+    B.mp++;
+    A.scored += r.pointsA;
+    A.conceded += r.pointsB;
+    B.scored += r.pointsB;
+    B.conceded += r.pointsA;
     const [W, L] = r.winner === r.a ? [A, B] : [B, A];
     W.w++; W.points += 2; L.l++;
     const d = matchPointDiff(r);

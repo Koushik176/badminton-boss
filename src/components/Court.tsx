@@ -3,7 +3,17 @@ import { roleOf, type MatchState, type TeamKey } from "@/lib/engine/scoring";
 type Names = Record<string, string>;
 export type CourtOrientation = "horizontal" | "vertical";
 
-function Box({ state, team, half, names }: { state: MatchState; team: TeamKey; half: "left" | "right"; names: Names }) {
+function Box({
+  state,
+  team,
+  half,
+  names,
+}: {
+  state: MatchState;
+  team: TeamKey;
+  half: "left" | "right";
+  names: Names;
+}) {
   const pid = state.teams[team].find((id) => state.courts[id] === half);
   if (!pid) return <div className="border border-court-line/60" />;
   const role = roleOf(state, pid);
@@ -14,8 +24,12 @@ function Box({ state, team, half, names }: { state: MatchState; team: TeamKey; h
         ? "ring-4 ring-inset ring-accent text-court-line"
         : "text-court-line/80";
   return (
-    <div className={`flex flex-col items-center justify-center border border-court-line/60 p-2 text-center ${tone}`}>
-      <span className="font-display text-lg font-bold leading-tight sm:text-2xl">{names[pid] ?? "?"}</span>
+    <div
+      className={`flex flex-col items-center justify-center border border-court-line/60 p-2 text-center ${tone}`}
+    >
+      <span className="font-display text-lg font-bold leading-tight sm:text-2xl">
+        {names[pid] ?? "?"}
+      </span>
       <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">{role}</span>
       <span className="text-[10px] uppercase opacity-60">{half} court</span>
     </div>

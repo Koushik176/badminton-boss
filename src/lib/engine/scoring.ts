@@ -101,7 +101,12 @@ export function isGameWon(own: number, opp: number): boolean {
   return own >= 21 && own - opp >= 2;
 }
 
-function placePlayers(state: MatchState, servingTeam: TeamKey, serverId: string, receiverId: string) {
+function placePlayers(
+  state: MatchState,
+  servingTeam: TeamKey,
+  serverId: string,
+  receiverId: string,
+) {
   if (teamOf(state, serverId) !== servingTeam)
     throw new EngineError("The server must belong to the serving team.");
   if (teamOf(state, receiverId) !== other(servingTeam))
@@ -157,11 +162,12 @@ export function applyAction(state: MatchState, action: MatchAction): MatchState 
 }
 
 function rallyWon(state: MatchState, team: TeamKey): MatchState {
-  if (state.status !== "LIVE") throw new EngineError("Points can only be added during a live game.");
+  if (state.status !== "LIVE")
+    throw new EngineError("Points can only be added during a live game.");
   const serving = state.servingTeam!;
   const score = { ...state.score, [team]: state.score[team] + 1 };
   if (score[team] > 30) throw new EngineError("Score cannot exceed 30.");
-  let courts = { ...state.courts };
+  const courts = { ...state.courts };
   let serverId = state.serverId!;
 
   if (team === serving) {
@@ -174,7 +180,12 @@ function rallyWon(state: MatchState, team: TeamKey): MatchState {
     serverId = playerInCourt(state, team, courtForScore(score[team]), courts);
   }
   const serviceCourt = courts[serverId]!;
-  const receiverId = playerInCourt(state, other(team === serving ? serving : team), serviceCourt, courts);
+  const receiverId = playerInCourt(
+    state,
+    other(team === serving ? serving : team),
+    serviceCourt,
+    courts,
+  );
 
   let next: MatchState = {
     ...state,
@@ -223,7 +234,13 @@ export function replay(initial: MatchState, actions: MatchAction[]): MatchState 
  */
 export function undoLast(initial: MatchState, actions: MatchAction[]) {
   const idx = actions.map((a) => a.type).lastIndexOf("RALLY_WON");
-  if (idx === -1) return { state: replay(initial, actions), actions, removed: null, dropped: [] as MatchAction[] };
+  if (idx === -1)
+    return {
+      state: replay(initial, actions),
+      actions,
+      removed: null,
+      dropped: [] as MatchAction[],
+    };
   let state = replay(initial, actions.slice(0, idx));
   const kept = actions.slice(0, idx);
   const dropped: MatchAction[] = [];

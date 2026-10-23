@@ -14,9 +14,15 @@ export const Route = createFileRoute("/matches/$id")({
   head: () => ({
     meta: [
       { title: "Live match — Smash Court" },
-      { name: "description", content: "Live badminton doubles scoring with server and court positions." },
+      {
+        name: "description",
+        content: "Live badminton doubles scoring with server and court positions.",
+      },
       { property: "og:title", content: "Live match — Smash Court" },
-      { property: "og:description", content: "Live badminton doubles scoring with server and court positions." },
+      {
+        property: "og:description",
+        content: "Live badminton doubles scoring with server and court positions.",
+      },
     ],
   }),
   component: MatchPage,
@@ -29,18 +35,50 @@ function MatchPage() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const { isOrganizer } = useAuth();
-  const { data, isLoading, error, refetch } = useQuery({ queryKey: ["match", id], queryFn: () => api(`/matches/${id}`) });
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["match", id],
+    queryFn: () => api(`/matches/${id}`),
+  });
   const [busy, setBusy] = useState(false);
   // View preference only: deliberately local and not persisted, so it resets on reload.
   const [orientation, setOrientation] = useState<CourtOrientation>("horizontal");
 
-  if (error) return <Wrap><p className="text-destructive">{(error as Error).message}</p></Wrap>;
-  if (isLoading || !data) return <Wrap><Skeleton className="h-96" /></Wrap>;
+  if (error)
+    return (
+      <Wrap>
+        <p className="text-destructive">{(error as Error).message}</p>
+      </Wrap>
+    );
+  if (isLoading || !data)
+    return (
+      <Wrap>
+        <Skeleton className="h-96" />
+      </Wrap>
+    );
   const { match, teamA, teamB, state, seq, tournament } = data as {
-    match: any; teamA: TeamInfo | null; teamB: TeamInfo | null; state: MatchState | null; seq: number; tournament: any;
+    match: any;
+    teamA: TeamInfo | null;
+    teamB: TeamInfo | null;
+    state: MatchState | null;
+    seq: number;
+    tournament: any;
   };
-  const back = <Link to="/tournaments/$id" params={{ id: tournament.id }} className="inline-flex items-center gap-1 text-sm opacity-80 hover:opacity-100"><ArrowLeft className="h-4 w-4" /> {tournament.name}</Link>;
-  if (!teamA || !teamB) return <Wrap>{back}<p className="mt-6">Teams for this match are not decided yet.</p></Wrap>;
+  const back = (
+    <Link
+      to="/tournaments/$id"
+      params={{ id: tournament.id }}
+      className="inline-flex items-center gap-1 text-sm opacity-80 hover:opacity-100"
+    >
+      <ArrowLeft className="h-4 w-4" /> {tournament.name}
+    </Link>
+  );
+  if (!teamA || !teamB)
+    return (
+      <Wrap>
+        {back}
+        <p className="mt-6">Teams for this match are not decided yet.</p>
+      </Wrap>
+    );
   const names = Object.fromEntries([...teamA.players, ...teamB.players].map((p) => [p.id, p.name]));
   const teamNames = { A: teamA.name, B: teamB.name };
 
@@ -49,7 +87,11 @@ function MatchPage() {
     setBusy(true);
     if (action.type !== "UNDO" && state) {
       try {
-        qc.setQueryData(["match", id], { ...data, state: applyAction(state, action), seq: seq + 1 });
+        qc.setQueryData(["match", id], {
+          ...data,
+          state: applyAction(state, action),
+          seq: seq + 1,
+        });
       } catch (e) {
         toast.error((e as Error).message);
         setBusy(false);
@@ -86,9 +128,17 @@ function MatchPage() {
       <Wrap>
         {back}
         {isOrganizer ? (
-          <Setup id={id} match={match} teamA={teamA} teamB={teamB} onDone={(r) => qc.setQueryData(["match", id], r)} />
+          <Setup
+            id={id}
+            match={match}
+            teamA={teamA}
+            teamB={teamB}
+            onDone={(r) => qc.setQueryData(["match", id], r)}
+          />
         ) : (
-          <p className="mt-6">This match has not started yet. Organizers can start it after signing in.</p>
+          <p className="mt-6">
+            This match has not started yet. Organizers can start it after signing in.
+          </p>
         )}
       </Wrap>
     );
@@ -101,7 +151,9 @@ function MatchPage() {
       <div className="mx-auto max-w-6xl p-3 md:p-6">
         <div className="mb-3 flex items-center justify-between">
           {back}
-          <span className="text-xs font-bold uppercase tracking-widest">{match.round_name} · Game {state.gameNumber} of {state.format === 3 ? "3" : "1"}</span>
+          <span className="text-xs font-bold uppercase tracking-widest">
+            {match.round_name} · Game {state.gameNumber} of {state.format === 3 ? "3" : "1"}
+          </span>
         </div>
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
@@ -138,19 +190,47 @@ function MatchPage() {
           </div>
           <aside className="space-y-3">
             <div className="rounded-2xl bg-sidebar-accent p-4 text-sm">
-              <p><b>Server:</b> {names[state.serverId!]} ({state.serviceCourt} court)</p>
-              <p><b>Receiver:</b> {names[state.receiverId!]}</p>
+              <p>
+                <b>Server:</b> {names[state.serverId!]} ({state.serviceCourt} court)
+              </p>
+              <p>
+                <b>Receiver:</b> {names[state.receiverId!]}
+              </p>
               <p className="mt-2 opacity-80">Rallies: {state.rallyCount}</p>
-              {state.games.length > 0 && <p className="mt-2"><b>Games:</b> {state.games.map((g) => `${g.A}–${g.B}`).join(", ")}</p>}
-              {state.score.A >= 20 && state.score.B >= 20 && state.status === "LIVE" && <p className="mt-2 font-bold text-sidebar-primary">Deuce — win by 2 (30 caps)</p>}
+              {state.games.length > 0 && (
+                <p className="mt-2">
+                  <b>Games:</b> {state.games.map((g) => `${g.A}–${g.B}`).join(", ")}
+                </p>
+              )}
+              {state.score.A >= 20 && state.score.B >= 20 && state.status === "LIVE" && (
+                <p className="mt-2 font-bold text-sidebar-primary">Deuce — win by 2 (30 caps)</p>
+              )}
             </div>
             {isOrganizer && (
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="secondary" disabled={busy || state.rallyCount === 0} onClick={() => send({ type: "UNDO" })}><Undo2 className="h-4 w-4" /> Undo</Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy || state.rallyCount === 0}
+                  onClick={() => send({ type: "UNDO" })}
+                >
+                  <Undo2 className="h-4 w-4" /> Undo
+                </Button>
                 {state.status === "PAUSED" ? (
-                  <Button variant="secondary" disabled={busy} onClick={() => send({ type: "MATCH_RESUMED" })}><Play className="h-4 w-4" /> Resume</Button>
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => send({ type: "MATCH_RESUMED" })}
+                  >
+                    <Play className="h-4 w-4" /> Resume
+                  </Button>
                 ) : (
-                  <Button variant="secondary" disabled={busy || state.status !== "LIVE"} onClick={() => send({ type: "MATCH_PAUSED" })}><Pause className="h-4 w-4" /> Pause</Button>
+                  <Button
+                    variant="secondary"
+                    disabled={busy || state.status !== "LIVE"}
+                    onClick={() => send({ type: "MATCH_PAUSED" })}
+                  >
+                    <Pause className="h-4 w-4" /> Pause
+                  </Button>
                 )}
               </div>
             )}
@@ -158,7 +238,10 @@ function MatchPage() {
         </div>
       </div>
       {over && isOrganizer && (
-        <GameOver state={state} teams={{ A: teamA, B: teamB }} busy={busy}
+        <GameOver
+          state={state}
+          teams={{ A: teamA, B: teamB }}
+          busy={busy}
           onNext={(serverId, receiverId) => send({ type: "GAME_STARTED", serverId, receiverId })}
           onUndo={() => send({ type: "UNDO" })}
           onConfirm={async () => {
@@ -172,33 +255,71 @@ function MatchPage() {
             } finally {
               setBusy(false);
             }
-          }} />
+          }}
+        />
       )}
-      {state.status === "PAUSED" && <div className="fixed inset-x-0 top-0 bg-destructive py-2 text-center text-sm font-bold uppercase text-destructive-foreground">Match paused</div>}
+      {state.status === "PAUSED" && (
+        <div className="fixed inset-x-0 top-0 bg-destructive py-2 text-center text-sm font-bold uppercase text-destructive-foreground">
+          Match paused
+        </div>
+      )}
     </div>
   );
 }
 
 function Wrap({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-background"><div className="mx-auto max-w-3xl p-4 md:p-8">{children}</div></div>;
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-3xl p-4 md:p-8">{children}</div>
+    </div>
+  );
 }
 
-function PickPlayer({ label, players, value, onChange }: { label: string; players: Player[]; value: string; onChange: (v: string) => void }) {
+function PickPlayer({
+  label,
+  players,
+  value,
+  onChange,
+}: {
+  label: string;
+  players: Player[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <div>
       <p className="mb-2 text-sm font-semibold">{label}</p>
       <div className="grid grid-cols-2 gap-2">
         {players.map((p) => (
-          <Button key={p.id} type="button" size="lg" variant={value === p.id ? "default" : "outline"} onClick={() => onChange(p.id)}>{p.name}</Button>
+          <Button
+            key={p.id}
+            type="button"
+            size="lg"
+            variant={value === p.id ? "default" : "outline"}
+            onClick={() => onChange(p.id)}
+          >
+            {p.name}
+          </Button>
         ))}
       </div>
     </div>
   );
 }
 
-function GameOver({ state, teams, busy, onNext, onUndo, onConfirm }: {
-  state: MatchState; teams: Record<TeamKey, TeamInfo>; busy: boolean;
-  onNext: (s: string, r: string) => void; onUndo: () => void; onConfirm: () => void;
+function GameOver({
+  state,
+  teams,
+  busy,
+  onNext,
+  onUndo,
+  onConfirm,
+}: {
+  state: MatchState;
+  teams: Record<TeamKey, TeamInfo>;
+  busy: boolean;
+  onNext: (s: string, r: string) => void;
+  onUndo: () => void;
+  onConfirm: () => void;
 }) {
   const last = state.games[state.games.length - 1]!;
   const w = last.winner!;
@@ -210,23 +331,49 @@ function GameOver({ state, teams, busy, onNext, onUndo, onConfirm }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/70 p-4">
       <div className="w-full max-w-md space-y-5 rounded-2xl bg-card p-6 text-card-foreground">
         <div className="text-center">
-          <p className="text-sm font-bold uppercase tracking-widest text-primary">{matchOver ? "Match complete" : `Game ${state.gameNumber} won`}</p>
+          <p className="text-sm font-bold uppercase tracking-widest text-primary">
+            {matchOver ? "Match complete" : `Game ${state.gameNumber} won`}
+          </p>
           <p className="font-display text-3xl font-extrabold">{teams[w].name}</p>
-          <p className="font-display text-xl tabular-nums">{state.games.map((g) => `${g.A}–${g.B}`).join("  ·  ")}</p>
+          <p className="font-display text-xl tabular-nums">
+            {state.games.map((g) => `${g.A}–${g.B}`).join("  ·  ")}
+          </p>
         </div>
         {!matchOver && (
           <>
-            <p className="text-sm text-muted-foreground">Teams change ends. {teams[w].name} serves first.</p>
-            <PickPlayer label="Server" players={teams[w].players} value={server} onChange={setServer} />
-            <PickPlayer label="Receiver" players={teams[l].players} value={receiver} onChange={setReceiver} />
+            <p className="text-sm text-muted-foreground">
+              Teams change ends. {teams[w].name} serves first.
+            </p>
+            <PickPlayer
+              label="Server"
+              players={teams[w].players}
+              value={server}
+              onChange={setServer}
+            />
+            <PickPlayer
+              label="Receiver"
+              players={teams[l].players}
+              value={receiver}
+              onChange={setReceiver}
+            />
           </>
         )}
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" disabled={busy} onClick={onUndo}><Undo2 className="h-4 w-4" /> Undo last point</Button>
+          <Button variant="outline" className="flex-1" disabled={busy} onClick={onUndo}>
+            <Undo2 className="h-4 w-4" /> Undo last point
+          </Button>
           {matchOver ? (
-            <Button className="flex-1" disabled={busy} onClick={onConfirm}>Confirm result</Button>
+            <Button className="flex-1" disabled={busy} onClick={onConfirm}>
+              Confirm result
+            </Button>
           ) : (
-            <Button className="flex-1" disabled={busy || !server || !receiver} onClick={() => onNext(server, receiver)}>Start next game</Button>
+            <Button
+              className="flex-1"
+              disabled={busy || !server || !receiver}
+              onClick={() => onNext(server, receiver)}
+            >
+              Start next game
+            </Button>
           )}
         </div>
       </div>
@@ -234,7 +381,19 @@ function GameOver({ state, teams, busy, onNext, onUndo, onConfirm }: {
   );
 }
 
-function Setup({ id, match, teamA, teamB, onDone }: { id: string; match: any; teamA: TeamInfo; teamB: TeamInfo; onDone: (r: any) => void }) {
+function Setup({
+  id,
+  match,
+  teamA,
+  teamB,
+  onDone,
+}: {
+  id: string;
+  match: any;
+  teamA: TeamInfo;
+  teamB: TeamInfo;
+  onDone: (r: any) => void;
+}) {
   const teams = { A: teamA, B: teamB };
   const [flipping, setFlipping] = useState(false);
   const [winner, setWinner] = useState<TeamKey | null>(null);
@@ -243,8 +402,10 @@ function Setup({ id, match, teamA, teamB, onDone }: { id: string; match: any; te
   const [server, setServer] = useState("");
   const [receiver, setReceiver] = useState("");
   const [busy, setBusy] = useState(false);
-  const serving: TeamKey | null = winner && choice ? (choice === "SERVE" ? winner : winner === "A" ? "B" : "A") : null;
-  const sidePicker: TeamKey | null = winner && choice ? (choice === "COURT" ? winner : winner === "A" ? "B" : "A") : null;
+  const serving: TeamKey | null =
+    winner && choice ? (choice === "SERVE" ? winner : winner === "A" ? "B" : "A") : null;
+  const sidePicker: TeamKey | null =
+    winner && choice ? (choice === "COURT" ? winner : winner === "A" ? "B" : "A") : null;
 
   function flip() {
     setFlipping(true);
@@ -256,7 +417,18 @@ function Setup({ id, match, teamA, teamB, onDone }: { id: string; match: any; te
   async function start() {
     setBusy(true);
     try {
-      onDone(await api(`/matches/${id}/start`, { body: { tossWinner: winner, tossChoice: choice, teamASide: aSide, servingTeam: serving, serverId: server, receiverId: receiver } }));
+      onDone(
+        await api(`/matches/${id}/start`, {
+          body: {
+            tossWinner: winner,
+            tossChoice: choice,
+            teamASide: aSide,
+            servingTeam: serving,
+            serverId: server,
+            receiverId: receiver,
+          },
+        }),
+      );
     } catch (e) {
       toast.error((e as Error).message);
       setBusy(false);
@@ -266,43 +438,74 @@ function Setup({ id, match, teamA, teamB, onDone }: { id: string; match: any; te
   return (
     <div className="mt-6 space-y-6 rounded-2xl border bg-card p-6">
       <div className="text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{match.round_name} · Best of {match.kind === "LEAGUE_FINAL" ? 1 : match.format}</p>
-        <p className="font-display text-3xl font-extrabold">{teamA.name} <span className="text-muted-foreground">vs</span> {teamB.name}</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          {match.round_name} · Best of {match.kind === "LEAGUE_FINAL" ? 1 : match.format}
+        </p>
+        <p className="font-display text-3xl font-extrabold">
+          {teamA.name} <span className="text-muted-foreground">vs</span> {teamB.name}
+        </p>
       </div>
       <section className="text-center">
         <h2 className="mb-3 font-display text-xl font-bold uppercase">1 · Coin toss</h2>
-        <div className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full border-4 border-primary bg-accent font-display text-2xl font-extrabold text-accent-foreground ${flipping ? "animate-spin" : ""}`}>
+        <div
+          className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full border-4 border-primary bg-accent font-display text-2xl font-extrabold text-accent-foreground ${flipping ? "animate-spin" : ""}`}
+        >
           {winner ? teams[winner].name.slice(0, 1) : "?"}
         </div>
         {winner ? (
           <p className="mt-3 font-semibold">{teams[winner].name} won the toss</p>
         ) : (
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <Button onClick={flip} disabled={flipping}>Flip coin</Button>
-            <Button variant="outline" onClick={() => setWinner("A")}>{teamA.name} won</Button>
-            <Button variant="outline" onClick={() => setWinner("B")}>{teamB.name} won</Button>
+            <Button onClick={flip} disabled={flipping}>
+              Flip coin
+            </Button>
+            <Button variant="outline" onClick={() => setWinner("A")}>
+              {teamA.name} won
+            </Button>
+            <Button variant="outline" onClick={() => setWinner("B")}>
+              {teamB.name} won
+            </Button>
           </div>
         )}
       </section>
       {winner && (
         <section>
-          <h2 className="mb-3 font-display text-xl font-bold uppercase">2 · {teams[winner].name} chooses</h2>
+          <h2 className="mb-3 font-display text-xl font-bold uppercase">
+            2 · {teams[winner].name} chooses
+          </h2>
           <div className="grid grid-cols-2 gap-2">
-            <Button size="lg" variant={choice === "SERVE" ? "default" : "outline"} onClick={() => setChoice("SERVE")}>Serve first</Button>
-            <Button size="lg" variant={choice === "COURT" ? "default" : "outline"} onClick={() => setChoice("COURT")}>Choose court side</Button>
+            <Button
+              size="lg"
+              variant={choice === "SERVE" ? "default" : "outline"}
+              onClick={() => setChoice("SERVE")}
+            >
+              Serve first
+            </Button>
+            <Button
+              size="lg"
+              variant={choice === "COURT" ? "default" : "outline"}
+              onClick={() => setChoice("COURT")}
+            >
+              Choose court side
+            </Button>
           </div>
         </section>
       )}
       {sidePicker && (
         <section>
-          <h2 className="mb-3 font-display text-xl font-bold uppercase">3 · {teams[sidePicker].name} picks a side</h2>
+          <h2 className="mb-3 font-display text-xl font-bold uppercase">
+            3 · {teams[sidePicker].name} picks a side
+          </h2>
           <div className="mx-auto grid max-w-xs overflow-hidden rounded-lg border-4 border-court-line bg-court text-court-line">
             {(["top", "bottom"] as const).map((side) => {
               const mine = sidePicker === "A" ? side : side === "top" ? "bottom" : "top";
               const sel = aSide !== null && (sidePicker === "A" ? aSide === side : aSide === mine);
               return (
-                <button key={side} onClick={() => setASide(sidePicker === "A" ? side : mine)}
-                  className={`h-20 font-display text-lg font-bold uppercase ${side === "top" ? "border-b-4 border-court-line" : ""} ${sel ? "bg-accent text-accent-foreground" : ""}`}>
+                <button
+                  key={side}
+                  onClick={() => setASide(sidePicker === "A" ? side : mine)}
+                  className={`h-20 font-display text-lg font-bold uppercase ${side === "top" ? "border-b-4 border-court-line" : ""} ${sel ? "bg-accent text-accent-foreground" : ""}`}
+                >
                   {sel ? teams[sidePicker].name : `${side} side`}
                 </button>
               );
@@ -313,9 +516,26 @@ function Setup({ id, match, teamA, teamB, onDone }: { id: string; match: any; te
       {serving && aSide && (
         <section className="space-y-4">
           <h2 className="font-display text-xl font-bold uppercase">4 · Server & receiver</h2>
-          <PickPlayer label={`Server (${teams[serving].name})`} players={teams[serving].players} value={server} onChange={setServer} />
-          <PickPlayer label={`Receiver (${teams[serving === "A" ? "B" : "A"].name})`} players={teams[serving === "A" ? "B" : "A"].players} value={receiver} onChange={setReceiver} />
-          <Button size="lg" className="w-full" disabled={!server || !receiver || busy} onClick={start}>Start match</Button>
+          <PickPlayer
+            label={`Server (${teams[serving].name})`}
+            players={teams[serving].players}
+            value={server}
+            onChange={setServer}
+          />
+          <PickPlayer
+            label={`Receiver (${teams[serving === "A" ? "B" : "A"].name})`}
+            players={teams[serving === "A" ? "B" : "A"].players}
+            value={receiver}
+            onChange={setReceiver}
+          />
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={!server || !receiver || busy}
+            onClick={start}
+          >
+            Start match
+          </Button>
         </section>
       )}
     </div>

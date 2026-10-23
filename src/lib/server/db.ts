@@ -13,7 +13,9 @@ export async function q<T = any>(sql: string, params: unknown[] = []): Promise<T
 }
 
 export async function exec(sql: string, params: unknown[] = []): Promise<number> {
-  const r = (await db().execute(sql, params, { fullResult: true })) as { rowsAffected?: number | null };
+  const r = (await db().execute(sql, params, { fullResult: true })) as {
+    rowsAffected?: number | null;
+  };
   return Number(r.rowsAffected ?? 0);
 }
 
