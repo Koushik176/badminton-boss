@@ -21,7 +21,7 @@ import {
   type Fixture,
   type ResultRow,
 } from "./tournament";
-import { planRebalance, validateNewTeam } from "../server/domain";
+import { matchesPlayedBy, planRebalance, validateNewTeam } from "../server/domain";
 import { HttpError, requireOrganizer } from "../server/http";
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `T${i}`);
@@ -306,6 +306,23 @@ describe("organizer-only operations", () => {
     await expect(
       requireOrganizer(new Request("http://x/api", { headers: { authorization: "Bearer nope" } })),
     ).rejects.toMatchObject({ status: 401 });
+  });
+});
+
+describe("matchesPlayedBy (live match page counter)", () => {
+  const done = [
+    { team_a_id: "X", team_b_id: "Y" },
+    { team_a_id: "Z", team_b_id: "X" },
+    { team_a_id: "Y", team_b_id: "Z" },
+  ];
+  it("counts completed matches per team, whichever side it was on", () => {
+    expect(matchesPlayedBy("X", done)).toBe(2);
+    expect(matchesPlayedBy("Y", done)).toBe(2);
+    expect(matchesPlayedBy("Z", done)).toBe(2);
+  });
+  it("is zero for a team that has not played", () => {
+    expect(matchesPlayedBy("W", done)).toBe(0);
+    expect(matchesPlayedBy("X", [])).toBe(0);
   });
 });
 

@@ -255,6 +255,14 @@ async function loadRow(id: string) {
   return m;
 }
 
+/** Number of the given completed-match rows that the team took part in. */
+export function matchesPlayedBy(
+  teamId: string,
+  completed: { team_a_id: string | null; team_b_id: string | null }[],
+): number {
+  return completed.filter((m) => m.team_a_id === teamId || m.team_b_id === teamId).length;
+}
+
 export async function getMatch(id: string) {
   const m = await loadRow(id);
   const teams = await q(
@@ -264,12 +272,25 @@ export async function getMatch(id: string) {
   const [t] = await q(`SELECT id,name,type,status,champion_team_id FROM tournaments WHERE id=?`, [
     m.tournament_id,
   ]);
+  // Completed matches of the two teams in this tournament (the match being viewed is not
+  // completed yet, so it never counts itself).
+  const done = await q(
+    `SELECT team_a_id, team_b_id FROM matches WHERE tournament_id=? AND status='COMPLETED' AND (team_a_id IN (?,?) OR team_b_id IN (?,?))`,
+    [
+      m.tournament_id,
+      m.team_a_id ?? "-",
+      m.team_b_id ?? "-",
+      m.team_a_id ?? "-",
+      m.team_b_id ?? "-",
+    ],
+  );
   const fmt = (tid: string | null) => {
     const x = teams.find((y) => y.id === tid);
     return x
       ? {
           id: x.id,
           name: x.name,
+          matchesPlayed: matchesPlayedBy(x.id, done),
           players: [
             { id: x.player1_id, name: x.p1name },
             { id: x.player2_id, name: x.p2name },
