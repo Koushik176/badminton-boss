@@ -172,6 +172,11 @@ function MatchPage() {
   const over = state.status === "GAME_OVER" || state.status === "MATCH_OVER";
   const topTeam: TeamKey = state.sides.A === "top" ? "A" : "B";
   const bottomTeam: TeamKey = topTeam === "A" ? "B" : "A";
+  // +1 buttons follow the court (top team left) unless the organizer toggled "Switch ends";
+  // the court itself always follows state.sides.
+  const buttonOrder: TeamKey[] = state.buttonsSwapped
+    ? [bottomTeam, topTeam]
+    : [topTeam, bottomTeam];
   return (
     <div className="min-h-screen bg-sidebar text-sidebar-foreground">
       <div className="mx-auto max-w-6xl p-3 md:p-6">
@@ -183,9 +188,9 @@ function MatchPage() {
         </div>
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
-            {/* Left button = team on the top side, right button = team on the bottom side (state.sides is the only source). */}
+            {/* Left button = team on the top side, right = bottom side; "Switch ends" swaps only these buttons. */}
             <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 md:gap-3">
-              {([topTeam, bottomTeam] as TeamKey[]).flatMap((k, i) => {
+              {buttonOrder.flatMap((k, i) => {
                 const btn = (
                   <button
                     key={k}
