@@ -1,3 +1,4 @@
+import { Crosshair } from "lucide-react";
 import { roleOf, type MatchState, type TeamKey } from "@/lib/engine/scoring";
 
 type Names = Record<string, string>;
@@ -21,7 +22,7 @@ function Box({
     role === "SERVER"
       ? "bg-accent text-accent-foreground"
       : role === "RECEIVER"
-        ? "ring-4 ring-inset ring-accent text-court-line"
+        ? "bg-court-line text-court"
         : "text-court-line/80";
   return (
     <div
@@ -30,7 +31,10 @@ function Box({
       <span className="font-display text-lg font-bold leading-tight sm:text-2xl">
         {names[pid] ?? "?"}
       </span>
-      <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">{role}</span>
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest opacity-80">
+        {role === "RECEIVER" && <Crosshair className="h-3 w-3" aria-hidden="true" />}
+        {role}
+      </span>
       <span className="text-[10px] uppercase opacity-60">{half} court</span>
     </div>
   );
