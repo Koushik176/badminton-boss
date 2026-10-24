@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import { teamMatches } from "@/lib/engine/tournament";
 import {
   ArrowDown,
   ArrowUp,
+  ChevronRight,
   ChevronsDown,
   Plus,
   Play,
@@ -191,6 +193,151 @@ function AddTeam({
   );
 }
 
+const STATUS_LABEL = {
+  LIVE: "Live",
+  UPCOMING: "Upcoming",
+  SKIPPED: "Skipped",
+  COMPLETED: "Completed",
+} as const;
+
+function StatusChip({ status }: { status: keyof typeof STATUS_LABEL }) {
+  const tone =
+    status === "LIVE"
+      ? "bg-destructive text-destructive-foreground"
+      : status === "COMPLETED"
+        ? "bg-muted text-muted-foreground"
+        : "border text-muted-foreground";
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${tone}`}
+    >
+      {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+/** Matches of the clicked team (default) or of the whole tournament, with results. */
+function TeamMatches({
+  teamId,
+  matches,
+  teamName,
+  scope,
+  onScope,
+}: {
+  teamId: string;
+  matches: Match[];
+  teamName: (id: string | null | undefined) => string | undefined;
+  scope: "team" | "all";
+  onScope: (s: "team" | "all") => void;
+}) {
+  const rows = teamMatches(teamId, matches);
+  const all = matches.filter((m) => m.status !== "BYE");
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant={scope === "team" ? "default" : "outline"}
+          onClick={() => onScope("team")}
+        >
+          {teamName(teamId)} ({rows.length})
+        </Button>
+        <Button
+          size="sm"
+          variant={scope === "all" ? "default" : "outline"}
+          onClick={() => onScope("all")}
+        >
+          All matches ({all.length})
+        </Button>
+      </div>
+      {scope === "team" ? (
+        rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No matches for this team yet.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {rows.map((r) => (
+              <li key={r.id}>
+                <Link
+                  to="/matches/$id"
+                  params={{ id: r.id }}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-card p-2.5 text-sm hover:border-primary"
+                >
+                  <StatusChip status={r.status} />
+                  <span className="text-xs text-muted-foreground">{r.roundName}</span>
+                  <span className="flex-1 font-medium">vs {teamName(r.opponentId)}</span>
+                  {r.outcome && (
+                    <span
+                      className={`rounded px-1.5 text-xs font-bold ${r.outcome === "W" ? "bg-primary text-primary-foreground" : "bg-destructive/15 text-destructive"}`}
+                    >
+                      {r.outcome === "W" ? "Won" : "Lost"}
+                    </span>
+                  )}
+                  {r.liveScore && (
+                    <span className="font-display tabular-nums">
+                      {r.liveScore.for}–{r.liveScore.against}
+                    </span>
+                  )}
+                  {r.status === "COMPLETED" && (
+                    <span className="font-display tabular-nums">
+                      {r.games.map((g) => `${g.for}-${g.against}`).join(", ")}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : (
+        <ul className="space-y-1.5">
+          {all.map((m) => (
+            <li key={m.id}>
+              <Link
+                to="/matches/$id"
+                params={{ id: m.id }}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-card p-2.5 text-sm hover:border-primary"
+              >
+                <StatusChip status={m.status as keyof typeof STATUS_LABEL} />
+                <span className="text-xs text-muted-foreground">{m.round_name}</span>
+                <span className="flex-1 font-medium">
+                  <span
+                    className={
+                      m.winner_team_id && m.winner_team_id === m.team_a_id
+                        ? "font-bold text-primary"
+                        : ""
+                    }
+                  >
+                    {teamName(m.team_a_id)}
+                  </span>
+                  {" vs "}
+                  <span
+                    className={
+                      m.winner_team_id && m.winner_team_id === m.team_b_id
+                        ? "font-bold text-primary"
+                        : ""
+                    }
+                  >
+                    {teamName(m.team_b_id)}
+                  </span>
+                </span>
+                {m.live && (
+                  <span className="font-display tabular-nums">
+                    {m.live.score.A}–{m.live.score.B}
+                  </span>
+                )}
+                {m.status === "COMPLETED" && (
+                  <span className="font-display tabular-nums">
+                    {m.games.map((g) => `${g.A}-${g.B}`).join(", ")}
+                  </span>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function TournamentPage() {
   const { id } = Route.useParams();
   const { isOrganizer } = useAuth();
@@ -199,6 +346,8 @@ function TournamentPage() {
     queryKey: ["tournament", id],
     queryFn: () => api<TournamentData>(`/tournaments/${id}`),
   });
+  const [openTeam, setOpenTeam] = useState<string | null>(null);
+  const [scope, setScope] = useState<"team" | "all">("team");
   if (error)
     return (
       <AppShell title="Tournament">
@@ -423,28 +572,67 @@ function TournamentPage() {
                 </tr>
               </thead>
               <tbody>
-                {standings.map((r: Standing, i: number) => (
-                  <tr key={r.team} className={`border-t ${i < 2 ? "bg-accent/20" : ""}`}>
-                    <td className="p-3 font-display font-bold">{i + 1}</td>
-                    <td className="p-3 font-medium">{tn(r.team)}</td>
-                    <td className="p-3">{r.mp}</td>
-                    <td className="p-3">{r.w}</td>
-                    <td className="p-3">{r.l}</td>
-                    <td className="p-3 font-bold">{r.points}</td>
-                    <td className="p-3">{r.scored}</td>
-                    <td className="p-3">{r.conceded}</td>
-                    <td className="p-3">
-                      {r.pd > 0 ? "+" : ""}
-                      {r.pd}
-                    </td>
-                  </tr>
-                ))}
+                {standings.map((r: Standing, i: number) => {
+                  const open = openTeam === r.team;
+                  const toggle = () => setOpenTeam(open ? null : r.team);
+                  return (
+                    <Fragment key={r.team}>
+                      <tr
+                        className={`cursor-pointer border-t hover:bg-muted/50 ${i < 2 ? "bg-accent/20" : ""}`}
+                        tabIndex={0}
+                        aria-expanded={open}
+                        onClick={toggle}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggle();
+                          }
+                        }}
+                      >
+                        <td className="p-3 font-display font-bold">{i + 1}</td>
+                        <td className="p-3 font-medium">
+                          <span className="inline-flex items-center gap-1">
+                            <ChevronRight
+                              className={`h-4 w-4 transition-transform ${open ? "rotate-90" : ""}`}
+                              aria-hidden="true"
+                            />
+                            {tn(r.team)}
+                          </span>
+                        </td>
+                        <td className="p-3">{r.mp}</td>
+                        <td className="p-3">{r.w}</td>
+                        <td className="p-3">{r.l}</td>
+                        <td className="p-3 font-bold">{r.points}</td>
+                        <td className="p-3">{r.scored}</td>
+                        <td className="p-3">{r.conceded}</td>
+                        <td className="p-3">
+                          {r.pd > 0 ? "+" : ""}
+                          {r.pd}
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr className="border-t bg-muted/30">
+                          <td colSpan={9} className="p-3">
+                            <TeamMatches
+                              teamId={r.team}
+                              matches={matches}
+                              teamName={tn}
+                              scope={scope}
+                              onScope={setScope}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Top 2 play the League Final (Best of 1). The final does not change this table. PD counts
-            each game's margin, except a deuce game (loser on 20+), which counts as ±1.
+            Tap a team to see its live, upcoming and completed matches. Top 2 play the League Final
+            (Best of 1). The final does not change this table. PD counts each game's margin, except
+            a deuce game (loser on 20+), which counts as ±1.
           </p>
         </TabsContent>
 
