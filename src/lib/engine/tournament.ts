@@ -292,6 +292,62 @@ export function standings(teams: string[], results: ResultRow[]): StandingRow[] 
   );
 }
 
+export interface TeamMatchInput {
+  id: string;
+  status: string;
+  round_name: string | null;
+  team_a_id: string | null;
+  team_b_id: string | null;
+  winner_team_id: string | null;
+  games: { A: number; B: number }[];
+  live?: { score: { A: number; B: number } } | null;
+}
+
+export interface TeamMatchRow {
+  id: string;
+  roundName: string | null;
+  status: "LIVE" | "UPCOMING" | "SKIPPED" | "COMPLETED";
+  opponentId: string | null;
+  /** Result from this team's point of view; null until the match is completed. */
+  outcome: "W" | "L" | null;
+  /** Per-game scores, this team's points first. */
+  games: { for: number; against: number }[];
+  /** Current game score for a live match, this team's points first. */
+  liveScore: { for: number; against: number } | null;
+}
+
+const STATUS_RANK = { LIVE: 0, UPCOMING: 1, SKIPPED: 1, COMPLETED: 2 } as const;
+
+/**
+ * Every match of `teamId` in the given schedule order (byes excluded), grouped live first,
+ * then matches still to be played, then completed ones. Scores are from the team's side.
+ */
+export function teamMatches(teamId: string, matches: readonly TeamMatchInput[]): TeamMatchRow[] {
+  const rows: TeamMatchRow[] = [];
+  for (const m of matches) {
+    if (m.team_a_id !== teamId && m.team_b_id !== teamId) continue;
+    if (!(m.status in STATUS_RANK)) continue; // BYE
+    const mine = m.team_a_id === teamId ? "A" : "B";
+    const theirs = mine === "A" ? "B" : "A";
+    rows.push({
+      id: m.id,
+      roundName: m.round_name,
+      status: m.status as TeamMatchRow["status"],
+      opponentId: mine === "A" ? m.team_b_id : m.team_a_id,
+      outcome:
+        m.status === "COMPLETED" && m.winner_team_id
+          ? m.winner_team_id === teamId
+            ? "W"
+            : "L"
+          : null,
+      games: m.games.map((g) => ({ for: g[mine], against: g[theirs] })),
+      liveScore: m.live ? { for: m.live.score[mine], against: m.live.score[theirs] } : null,
+    });
+  }
+  // Array.prototype.sort is stable, so schedule order is kept inside each group.
+  return rows.sort((a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status]);
+}
+
 /** Heading for a finished match, from the match kind and the tournament's recorded outcome. */
 export function resultHeading(
   m: { kind: string; round_name?: string | null; winner_team_id: string | null },
