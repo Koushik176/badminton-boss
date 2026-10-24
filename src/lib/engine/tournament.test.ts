@@ -42,13 +42,26 @@ describe("switch ends", () => {
       serverId: "a1",
       receiverId: "b1",
     });
-  it("swaps only the sides", () => {
-    const s = applyAction(applyAction(live(), { type: "RALLY_WON", team: "A" }), {
-      type: "SWITCH_ENDS",
-    });
+  it("toggles only the button order and leaves the court untouched", () => {
     const before = applyAction(live(), { type: "RALLY_WON", team: "A" });
+    const s = applyAction(before, { type: "SWITCH_ENDS" });
+    expect(s.buttonsSwapped).toBe(true);
+    expect(s.sides).toEqual(before.sides);
+    expect({ ...s, buttonsSwapped: false }).toEqual(before);
+    expect(applyAction(s, { type: "SWITCH_ENDS" }).buttonsSwapped).toBe(false);
+  });
+  it("buttons follow the court again after an automatic change of ends", () => {
+    let s = applyAction(live(), { type: "SWITCH_ENDS" });
+    s = applyAction(
+      { ...s, status: "GAME_OVER", games: [{ A: 21, B: 5, winner: "A" }] },
+      {
+        type: "GAME_STARTED",
+        serverId: "a1",
+        receiverId: "b1",
+      },
+    );
+    expect(s.buttonsSwapped).toBe(false);
     expect(s.sides).toEqual({ A: "top", B: "bottom" });
-    expect({ ...s, sides: before.sides }).toEqual(before);
   });
   it("is rejected outside a game", () => {
     const setup = createMatch({ teamA: ["a1", "a2"], teamB: ["b1", "b2"] });
@@ -61,10 +74,13 @@ describe("switch ends", () => {
       { type: "RALLY_WON", team: "A" },
       { type: "SWITCH_ENDS" },
     ];
-    expect(replay(initial, actions).sides).toEqual({ A: "top", B: "bottom" });
+    const replayed = replay(initial, actions);
+    expect(replayed.buttonsSwapped).toBe(true);
+    expect(replayed.sides).toEqual(initial.sides);
     const u = undoLast(initial, actions);
     expect(u.state.score).toEqual({ A: 0, B: 0 });
-    expect(u.state.sides).toEqual({ A: "top", B: "bottom" });
+    expect(u.state.buttonsSwapped).toBe(true);
+    expect(u.state.sides).toEqual(initial.sides);
   });
 });
 
