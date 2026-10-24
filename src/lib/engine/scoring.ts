@@ -24,6 +24,13 @@ export interface MatchState {
   gamesWon: Record<TeamKey, number>;
   games: GameScore[];
   sides: Record<TeamKey, CourtSide>;
+  /**
+   * Organizer's "Switch ends" toggle: when true the +1 buttons are shown in the opposite order
+   * to the court sides. It never moves the court, and resets whenever the ends change
+   * automatically (new game, change at 11) so the buttons follow the court again.
+   * Optional so matches saved before this field existed replay unchanged.
+   */
+  buttonsSwapped?: boolean;
   /** Current service court (left/right) for every player id. */
   courts: Record<string, CourtHalf>;
   servingTeam: TeamKey | null;
@@ -85,6 +92,7 @@ export function createMatch(opts: {
     gamesWon: { A: 0, B: 0 },
     games: [],
     sides: { A: sideA, B: sideA === "bottom" ? "top" : "bottom" },
+    buttonsSwapped: false,
     courts: {},
     servingTeam: null,
     serverId: null,
@@ -140,6 +148,7 @@ export function applyAction(state: MatchState, action: MatchAction): MatchState 
         gameNumber: state.gameNumber + 1,
         score: { A: 0, B: 0 },
         sides: { A: state.sides.B, B: state.sides.A }, // change ends
+        buttonsSwapped: false,
         midGameSwitchDone: false,
         status: "LIVE",
       };
@@ -152,10 +161,11 @@ export function applyAction(state: MatchState, action: MatchAction): MatchState 
       if (state.status !== "PAUSED") throw new EngineError("Match is not paused.");
       return { ...state, status: "LIVE" };
     case "SWITCH_ENDS":
-      // Only the court ends change; score, server, receiver and service courts stay as they are.
+      // Only the order of the +1 buttons toggles; court sides, score, server, receiver and
+      // service courts stay exactly as they are.
       if (state.status !== "LIVE" && state.status !== "PAUSED")
         throw new EngineError("Ends can only be switched during a game.");
-      return { ...state, sides: { A: state.sides.B, B: state.sides.A } };
+      return { ...state, buttonsSwapped: !state.buttonsSwapped };
     case "RALLY_WON":
       return rallyWon(state, action.team);
   }
@@ -201,7 +211,12 @@ function rallyWon(state: MatchState, team: TeamKey): MatchState {
   // Deciding game: change ends when leading side reaches 11.
   const deciding = state.format === 3 && state.gameNumber === 3;
   if (deciding && !next.midGameSwitchDone && Math.max(score.A, score.B) === 11) {
-    next = { ...next, sides: { A: next.sides.B, B: next.sides.A }, midGameSwitchDone: true };
+    next = {
+      ...next,
+      sides: { A: next.sides.B, B: next.sides.A },
+      buttonsSwapped: false,
+      midGameSwitchDone: true,
+    };
   }
 
   if (isGameWon(score[team], score[other(team)])) {
