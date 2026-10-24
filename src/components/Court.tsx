@@ -22,7 +22,7 @@ function Box({
     role === "SERVER"
       ? "bg-accent text-accent-foreground"
       : role === "RECEIVER"
-        ? "bg-court-line text-court"
+        ? "bg-accent-foreground text-accent"
         : "text-court-line/80";
   return (
     <div
