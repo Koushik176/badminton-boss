@@ -36,6 +36,7 @@ type Game = {
 
 type Match = {
   id: string;
+  kind: "LEAGUE" | "LEAGUE_FINAL" | "KNOCKOUT";
   status: "BYE" | "LIVE" | "UPCOMING" | "SKIPPED" | "COMPLETED";
   round_name: string;
   round: number;
@@ -44,7 +45,7 @@ type Match = {
   team_b_id: string | null;
   winner_team_id: string | null;
   games: Game[];
-  live?: { score: Game };
+  live?: { score: Game } | null;
 };
 
 type Standing = {
@@ -74,6 +75,8 @@ type TournamentData = {
   standings: Standing[];
 };
 
+type PlayerOption = { id: string; name: string };
+
 export const Route = createFileRoute("/tournaments/$id")({
   head: () => ({
     meta: [
@@ -92,13 +95,109 @@ export const Route = createFileRoute("/tournaments/$id")({
   component: TournamentPage,
 });
 
+function AddTeam({
+  tournamentId,
+  usedPlayers,
+  onDone,
+}: {
+  tournamentId: string;
+  usedPlayers: Set<string>;
+  onDone: () => void;
+}) {
+  const { data: players = [] } = useQuery({
+    queryKey: ["players"],
+    queryFn: () => api<PlayerOption[]>("/players"),
+  });
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [p1, setP1] = useState("");
+  const [p2, setP2] = useState("");
+  const [busy, setBusy] = useState(false);
+  const free = players.filter((p) => !usedPlayers.has(p.id));
+  const sel = "h-9 rounded-md border bg-background px-2 text-sm";
+  async function submit() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api(`/tournaments/${tournamentId}/teams`, {
+        body: { name: name.trim(), players: [p1, p2] },
+      });
+      toast.success("Team added and fixtures created");
+      setName("");
+      setP1("");
+      setP2("");
+      setOpen(false);
+      onDone();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!open)
+    return (
+      <Button size="sm" className="mb-4" onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4" /> Add team
+      </Button>
+    );
+  return (
+    <div className="mb-4 space-y-3 rounded-xl border bg-card p-4">
+      <Input
+        placeholder="Team name"
+        value={name}
+        maxLength={100}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <div className="grid gap-2 sm:grid-cols-2">
+        {[
+          [p1, setP1, p2],
+          [p2, setP2, p1],
+        ].map(([v, set, other], i) => (
+          <select
+            key={i}
+            className={sel}
+            value={v as string}
+            onChange={(e) => (set as (x: string) => void)(e.target.value)}
+            aria-label={`Player ${i + 1}`}
+          >
+            <option value="">Player {i + 1}</option>
+            {free
+              .filter((p) => p.id !== other)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        New fixtures against every existing team are added and the upcoming matches are rebalanced.
+        Completed and live matches are not changed.
+      </p>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={busy || !name.trim() || !p1 || !p2 || p1 === p2}
+          onClick={submit}
+        >
+          Add team
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function TournamentPage() {
   const { id } = Route.useParams();
   const { isOrganizer } = useAuth();
   const qc = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ["tournament", id],
-    queryFn: () => api(`/tournaments/${id}`),
+    queryFn: () => api<TournamentData>(`/tournaments/${id}`),
   });
   if (error)
     return (
@@ -114,10 +213,8 @@ function TournamentPage() {
     );
 
   const { tournament: t, teams, matches, standings } = data;
-  const canAddTeam =
-    t.status !== "COMPLETED" && !matches.some((m: Match) => m.round_name === "League Final");
-  const team = Object.fromEntries(teams.map((x: { id: string; name: string }) => [x.id, x]));
-  const tn = (tid: string | null) => (tid ? team[tid]?.name : "TBD");
+  const team = Object.fromEntries(teams.map((x: Team) => [x.id, x]));
+  const tn = (tid: string | null | undefined) => (tid ? team[tid]?.name : "TBD");
   const sched = matches.filter((m: Match) => m.status !== "BYE");
   const live = sched.find((m: Match) => m.status === "LIVE");
   const upcoming = sched.filter((m: Match) => m.status === "UPCOMING" || m.status === "SKIPPED");
@@ -133,7 +230,20 @@ function TournamentPage() {
       toast.error((e as Error).message);
     }
   }
-  const label = (m: (typeof matches)[number]) =>
+  const canAddTeam =
+    t.type === "LEAGUE" &&
+    t.status === "LIVE" &&
+    !matches.some((m: Match) => m.kind === "LEAGUE_FINAL");
+  async function rebalance() {
+    try {
+      await api(`/tournaments/${id}/rebalance`, { body: {} });
+      qc.invalidateQueries({ queryKey: ["tournament", id] });
+      toast.success("Upcoming matches rebalanced");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+  const label = (m: Match) =>
     m.status === "LIVE"
       ? "Live"
       : m.id === nextId
@@ -143,15 +253,6 @@ function TournamentPage() {
           : m.status === "SKIPPED"
             ? "Skipped"
             : "Upcoming";
-
-  async function rebalance(): Promise<void> {
-    try {
-      await api(`/tournaments/${id}/schedule`, { body: { op: "rebalance" } });
-      qc.invalidateQueries({ queryKey: ["tournament", id] });
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  }
 
   return (
     <AppShell title={t.name}>
@@ -245,7 +346,7 @@ function TournamentPage() {
                     </Link>
                     {m.status === "COMPLETED" && (
                       <span className="font-display tabular-nums">
-                        {m.games.map((g: { A: number; B: number }) => `${g.A}-${g.B}`).join(", ")}
+                        {m.games.map((g: Game) => `${g.A}-${g.B}`).join(", ")}
                       </span>
                     )}
                     {editable && (
@@ -342,13 +443,14 @@ function TournamentPage() {
             </table>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Top 2 play the League Final (Best of 1). The final does not change this table.
+            Top 2 play the League Final (Best of 1). The final does not change this table. PD counts
+            each game's margin, except a deuce game (loser on 20+), which counts as ±1.
           </p>
         </TabsContent>
 
         <TabsContent value="bracket">
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {[...new Set(matches.map((m: Match) => m.round))].sort().map((r) => (
+            {[...new Set(matches.map((m: Match) => m.round as number))].sort().map((r) => (
               <div key={r as number} className="flex min-w-56 flex-col justify-around gap-3">
                 <p className="text-center text-xs font-bold uppercase text-muted-foreground">
                   {matches.find((m: Match) => m.round === r)?.round_name}
@@ -442,71 +544,5 @@ function TournamentPage() {
         </TabsContent>
       </Tabs>
     </AppShell>
-  );
-}
-
-function AddTeam({
-  tournamentId,
-  usedPlayers,
-  onDone,
-}: {
-  tournamentId: string;
-  usedPlayers: Set<string>;
-  onDone: () => void;
-}) {
-  const [player1Id, setPlayer1Id] = useState("");
-  const [player2Id, setPlayer2Id] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function addTeam(event: { preventDefault: () => void }) {
-    event.preventDefault();
-    const player1_id = player1Id.trim();
-    const player2_id = player2Id.trim();
-    if (
-      !player1_id ||
-      !player2_id ||
-      player1_id === player2_id ||
-      usedPlayers.has(player1_id) ||
-      usedPlayers.has(player2_id)
-    ) {
-      toast.error("Enter two different players who aren't already on a team.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await api(`/tournaments/${tournamentId}/teams`, {
-        body: { player1_id, player2_id },
-      });
-      setPlayer1Id("");
-      setPlayer2Id("");
-      onDone();
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <form onSubmit={addTeam} className="mb-4 flex flex-wrap items-center gap-2">
-      <Input
-        aria-label="First player ID"
-        placeholder="First player ID"
-        value={player1Id}
-        onChange={(event) => setPlayer1Id(event.target.value)}
-        className="w-48"
-      />
-      <Input
-        aria-label="Second player ID"
-        placeholder="Second player ID"
-        value={player2Id}
-        onChange={(event) => setPlayer2Id(event.target.value)}
-        className="w-48"
-      />
-      <Button type="submit" size="sm" disabled={saving}>
-        <Plus className="h-4 w-4" /> {saving ? "Adding…" : "Add team"}
-      </Button>
-    </form>
   );
 }
