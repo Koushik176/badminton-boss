@@ -86,17 +86,21 @@ function Dashboard() {
         <div className="space-y-8">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
-              ["Players", data.counts.players],
-              ["Tournaments", data.counts.tournaments],
-              ["Matches played", data.counts.matches],
-              ["Completed events", data.counts.completed],
-            ].map(([l, v]) => (
-              <div key={l} className="rounded-xl border bg-card p-4">
+              { label: "Players", value: data.counts.players, to: "/players" },
+              { label: "Tournaments", value: data.counts.tournaments, to: "/tournaments" },
+              { label: "Matches played", value: data.counts.matches, to: "/stats" },
+              { label: "Completed events", value: data.counts.completed, to: "/tournaments" },
+            ].map(({ label, value, to }) => (
+              <Link
+                key={label}
+                to={to}
+                className="rounded-xl border bg-card p-4 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {l}
+                  {label}
                 </p>
-                <p className="font-display text-4xl font-extrabold">{v}</p>
-              </div>
+                <p className="font-display text-4xl font-extrabold">{value}</p>
+              </Link>
             ))}
           </div>
 
