@@ -29,7 +29,13 @@ export const Route = createFileRoute("/matches/$id")({
 });
 
 type Player = { id: string; name: string };
-type TeamInfo = { id: string; name: string; players: Player[] };
+type TeamInfo = {
+  id: string;
+  name: string;
+  players: Player[];
+  /** Completed matches this team has played in the tournament. */
+  matchesPlayed: number;
+};
 type Game = { A: number; B: number };
 type MatchInfo = {
   id: string;
@@ -205,7 +211,8 @@ function MatchPage() {
                       {state.score[k]}
                     </p>
                     <p className="text-xs uppercase tracking-wide opacity-70">
-                      Games {state.gamesWon[k]}
+                      Matches played {(k === "A" ? teamA : teamB).matchesPlayed}
+                      {state.format === 3 ? ` · Games ${state.gamesWon[k]}` : ""}
                       {state.servingTeam === k ? " · Serving" : ""}
                     </p>
                     {isOrganizer && state.status === "LIVE" && (

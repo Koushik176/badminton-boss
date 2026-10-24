@@ -12,6 +12,7 @@ import {
   gamePointDiff,
   knockoutBracket,
   resultHeading,
+  teamMatches,
   roundRobin,
   scheduleCost,
   scheduleLeague,
@@ -20,7 +21,7 @@ import {
   type Fixture,
   type ResultRow,
 } from "./tournament";
-import { planRebalance, validateNewTeam } from "../server/domain";
+import { matchesPlayedBy, planRebalance, validateNewTeam } from "../server/domain";
 import { HttpError, requireOrganizer } from "../server/http";
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `T${i}`);
@@ -305,5 +306,81 @@ describe("organizer-only operations", () => {
     await expect(
       requireOrganizer(new Request("http://x/api", { headers: { authorization: "Bearer nope" } })),
     ).rejects.toMatchObject({ status: 401 });
+  });
+});
+
+describe("matchesPlayedBy (live match page counter)", () => {
+  const done = [
+    { team_a_id: "X", team_b_id: "Y" },
+    { team_a_id: "Z", team_b_id: "X" },
+    { team_a_id: "Y", team_b_id: "Z" },
+  ];
+  it("counts completed matches per team, whichever side it was on", () => {
+    expect(matchesPlayedBy("X", done)).toBe(2);
+    expect(matchesPlayedBy("Y", done)).toBe(2);
+    expect(matchesPlayedBy("Z", done)).toBe(2);
+  });
+  it("is zero for a team that has not played", () => {
+    expect(matchesPlayedBy("W", done)).toBe(0);
+    expect(matchesPlayedBy("X", [])).toBe(0);
+  });
+});
+
+describe("teamMatches (standings drill-down)", () => {
+  const m = (
+    id: string,
+    a: string,
+    b: string,
+    status: string,
+    extra: Partial<Parameters<typeof teamMatches>[1][number]> = {},
+  ) => ({
+    id,
+    status,
+    round_name: "League",
+    team_a_id: a,
+    team_b_id: b,
+    winner_team_id: null,
+    games: [],
+    ...extra,
+  });
+  const matches = [
+    m("m1", "X", "Y", "COMPLETED", { winner_team_id: "Y", games: [{ A: 18, B: 21 }] }),
+    m("m2", "Z", "X", "COMPLETED", { winner_team_id: "Z", games: [{ A: 21, B: 19 }] }),
+    m("m3", "X", "W", "UPCOMING"),
+    m("m4", "Y", "Z", "UPCOMING"),
+    m("m5", "W", "X", "LIVE", { live: { score: { A: 7, B: 11 } } }),
+    m("m6", "X", "V", "SKIPPED"),
+    m("m7", "X", "-", "BYE"),
+  ];
+  it("lists only the team's matches, live first, then to-play, then completed", () => {
+    const rows = teamMatches("X", matches);
+    expect(rows.map((r) => r.id)).toEqual(["m5", "m3", "m6", "m1", "m2"]);
+    expect(rows.map((r) => r.status)).toEqual([
+      "LIVE",
+      "UPCOMING",
+      "SKIPPED",
+      "COMPLETED",
+      "COMPLETED",
+    ]);
+  });
+  it("gives results and scores from the team's own point of view", () => {
+    const rows = teamMatches("X", matches);
+    expect(rows.find((r) => r.id === "m1")).toMatchObject({
+      outcome: "L",
+      opponentId: "Y",
+      games: [{ for: 18, against: 21 }],
+    });
+    expect(rows.find((r) => r.id === "m2")).toMatchObject({
+      outcome: "L",
+      opponentId: "Z",
+      games: [{ for: 19, against: 21 }],
+    });
+    expect(rows.find((r) => r.id === "m5")).toMatchObject({
+      outcome: null,
+      liveScore: { for: 11, against: 7 },
+    });
+  });
+  it("returns nothing for a team without matches", () => {
+    expect(teamMatches("nobody", matches)).toEqual([]);
   });
 });
