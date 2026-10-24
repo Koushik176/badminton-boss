@@ -5,11 +5,11 @@ import { toast } from "sonner";
 import { Shuffle, Lock, Unlock, Check, X } from "lucide-react";
 import { api, useAuth } from "@/lib/api";
 import {
-  randomTeams,
+  buildTeams,
   pairingKey,
   knockoutBracket,
   roundRobin,
-  shuffle,
+  scheduleLeague,
 } from "@/lib/engine/tournament";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ function Wizard() {
   const qc = useQueryClient();
   const { data: players = [] } = useQuery({
     queryKey: ["players"],
-    queryFn: () => api<any[]>("/players"),
+    queryFn: () => api<{ id: string; name: string }[]>("/players"),
   });
   const names = useMemo(() => Object.fromEntries(players.map((p) => [p.id, p.name])), [players]);
 
@@ -99,17 +99,9 @@ function Wizard() {
     );
   }
   function shuffleTeams() {
-    const locked = teams.filter((t) => t.locked);
-    const prev = teams.length ? pairingKey(teams.map((t) => t.players)) : undefined;
-    const pairs = randomTeams(selected, {
-      locked: locked.map((t) => t.players),
-      previousKey: prev,
-    });
-    setTeams(
-      pairs.map(
-        (p) =>
-          locked.find((l) => l.players === p) ?? { name: teamName(p), players: p, locked: false },
-      ),
+    rebuild(
+      teams.filter((t) => t.locked),
+      teams,
     );
   }
   function makeFixtures(t = teams) {
@@ -121,7 +113,7 @@ function Wizard() {
           .filter((s) => s.round === 1)
           .map((s) => [Number(s.a), s.b === null ? null : Number(s.b)]),
       );
-    } else setFixtures(shuffle(roundRobin(idx)).map(([a, b]) => [Number(a), Number(b)]));
+    } else setFixtures(scheduleLeague(roundRobin(idx)).map(([a, b]) => [Number(a), Number(b)]));
   }
   async function quickAdd() {
     if (!newName.trim()) return;
@@ -162,7 +154,11 @@ function Wizard() {
       setTeams([]);
       if (mode === "random")
         setTeams(
-          randomTeams(selected).map((p) => ({ name: teamName(p), players: p, locked: false })),
+          buildTeams(selected).map((b) => ({
+            name: teamName(b.players),
+            players: b.players,
+            locked: false,
+          })),
         );
     }
     if (step === 2) makeFixtures();
@@ -330,9 +326,45 @@ function Wizard() {
         {step === 2 && (
           <div>
             {mode === "random" ? (
-              <Button type="button" variant="secondary" onClick={shuffleTeams} className="mb-4">
-                <Shuffle className="h-4 w-4" /> Shuffle teams
-              </Button>
+              <div className="mb-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={shuffleTeams}
+                    disabled={allLocked}
+                  >
+                    <Shuffle className="h-4 w-4" />{" "}
+                    {teams.some((t) => t.locked) ? "Randomize remaining" : "Shuffle teams"}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {allLocked
+                      ? "All teams are locked."
+                      : "Locked teams stay as they are; only unlocked players are re-paired."}
+                  </span>
+                </div>
+                {unlockedPlayers.length > 2 && (
+                  <div>
+                    <p className="mb-2 text-sm text-muted-foreground">
+                      Or pick a pair yourself (tap two players); it is locked and the others are
+                      re-randomized.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {unlockedPlayers.map((id) => (
+                        <Button
+                          key={id}
+                          type="button"
+                          size="sm"
+                          variant={pick === id ? "default" : "outline"}
+                          onClick={() => manualTap(id)}
+                        >
+                          {names[id]}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               unpaired.length > 0 && (
                 <div className="mb-4">
@@ -396,6 +428,11 @@ function Wizard() {
                   <p className="mt-2 text-sm text-muted-foreground">
                     {names[t.players[0]]} + {names[t.players[1]]}
                   </p>
+                  <span
+                    className={`mt-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${t.locked ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                  >
+                    {t.locked ? "Locked · manual" : "Random"}
+                  </span>
                 </div>
               ))}
             </div>

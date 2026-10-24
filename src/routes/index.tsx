@@ -133,7 +133,7 @@ function Dashboard() {
                 <Empty title="No active tournament">Create one to get started.</Empty>
               ) : (
                 <div className="space-y-2">
-                  {data.active.map((t: any) => (
+                  {data.active.map((t: Tournament) => (
                     <div
                       key={t.id}
                       className="flex items-center justify-between rounded-xl border bg-card p-4"

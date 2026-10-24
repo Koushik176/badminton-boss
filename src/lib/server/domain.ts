@@ -526,12 +526,14 @@ export async function playerStats(
         team: r.team_a_id,
         pf: Number(r.score_a_total),
         pa: Number(r.score_b_total),
+        pd: diffA,
       },
       {
         ids: [r.b1, r.b2],
         team: r.team_b_id,
         pf: Number(r.score_b_total),
         pa: Number(r.score_a_total),
+        pd: -diffA,
       },
     ];
     for (const s of sides)

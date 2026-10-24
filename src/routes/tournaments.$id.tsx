@@ -20,6 +20,63 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+type Team = {
+  id: string;
+  name: string;
+  player1_id: string;
+  player2_id: string;
+  p1name: string;
+  p2name: string;
+};
+
+type Game = {
+  A: number;
+  B: number;
+};
+
+type Match = {
+  id: string;
+  kind: "LEAGUE" | "LEAGUE_FINAL" | "KNOCKOUT";
+  status: "BYE" | "LIVE" | "UPCOMING" | "SKIPPED" | "COMPLETED";
+  round_name: string;
+  round: number;
+  slot_index: number;
+  team_a_id: string | null;
+  team_b_id: string | null;
+  winner_team_id: string | null;
+  games: Game[];
+  live?: { score: Game } | null;
+};
+
+type Standing = {
+  team: string;
+  mp: number;
+  w: number;
+  l: number;
+  points: number;
+  scored: number;
+  conceded: number;
+  pd: number;
+};
+
+type TournamentData = {
+  tournament: {
+    name: string;
+    status: string;
+    date: string;
+    location?: string | null;
+    type: "LEAGUE" | "KNOCKOUT";
+    format: number;
+    champion_team_id?: string | null;
+    runner_up_team_id?: string | null;
+  };
+  teams: Team[];
+  matches: Match[];
+  standings: Standing[];
+};
+
+type PlayerOption = { id: string; name: string };
+
 export const Route = createFileRoute("/tournaments/$id")({
   head: () => ({
     meta: [
@@ -38,13 +95,109 @@ export const Route = createFileRoute("/tournaments/$id")({
   component: TournamentPage,
 });
 
+function AddTeam({
+  tournamentId,
+  usedPlayers,
+  onDone,
+}: {
+  tournamentId: string;
+  usedPlayers: Set<string>;
+  onDone: () => void;
+}) {
+  const { data: players = [] } = useQuery({
+    queryKey: ["players"],
+    queryFn: () => api<PlayerOption[]>("/players"),
+  });
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [p1, setP1] = useState("");
+  const [p2, setP2] = useState("");
+  const [busy, setBusy] = useState(false);
+  const free = players.filter((p) => !usedPlayers.has(p.id));
+  const sel = "h-9 rounded-md border bg-background px-2 text-sm";
+  async function submit() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api(`/tournaments/${tournamentId}/teams`, {
+        body: { name: name.trim(), players: [p1, p2] },
+      });
+      toast.success("Team added and fixtures created");
+      setName("");
+      setP1("");
+      setP2("");
+      setOpen(false);
+      onDone();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!open)
+    return (
+      <Button size="sm" className="mb-4" onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4" /> Add team
+      </Button>
+    );
+  return (
+    <div className="mb-4 space-y-3 rounded-xl border bg-card p-4">
+      <Input
+        placeholder="Team name"
+        value={name}
+        maxLength={100}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <div className="grid gap-2 sm:grid-cols-2">
+        {[
+          [p1, setP1, p2],
+          [p2, setP2, p1],
+        ].map(([v, set, other], i) => (
+          <select
+            key={i}
+            className={sel}
+            value={v as string}
+            onChange={(e) => (set as (x: string) => void)(e.target.value)}
+            aria-label={`Player ${i + 1}`}
+          >
+            <option value="">Player {i + 1}</option>
+            {free
+              .filter((p) => p.id !== other)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        New fixtures against every existing team are added and the upcoming matches are rebalanced.
+        Completed and live matches are not changed.
+      </p>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={busy || !name.trim() || !p1 || !p2 || p1 === p2}
+          onClick={submit}
+        >
+          Add team
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function TournamentPage() {
   const { id } = Route.useParams();
   const { isOrganizer } = useAuth();
   const qc = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ["tournament", id],
-    queryFn: () => api(`/tournaments/${id}`),
+    queryFn: () => api<TournamentData>(`/tournaments/${id}`),
   });
   if (error)
     return (
@@ -61,12 +214,12 @@ function TournamentPage() {
 
   const { tournament: t, teams, matches, standings } = data;
   const team = Object.fromEntries(teams.map((x: Team) => [x.id, x]));
-  const tn = (tid: string | null) => (tid ? team[tid]?.name : "TBD");
-  const sched = matches.filter((m: any) => m.status !== "BYE");
-  const live = sched.find((m: any) => m.status === "LIVE");
-  const upcoming = sched.filter((m: any) => m.status === "UPCOMING" || m.status === "SKIPPED");
+  const tn = (tid: string | null | undefined) => (tid ? team[tid]?.name : "TBD");
+  const sched = matches.filter((m: Match) => m.status !== "BYE");
+  const live = sched.find((m: Match) => m.status === "LIVE");
+  const upcoming = sched.filter((m: Match) => m.status === "UPCOMING" || m.status === "SKIPPED");
   const nextId = upcoming.find(
-    (m: any) => m.status === "UPCOMING" && m.team_a_id && m.team_b_id,
+    (m: Match) => m.status === "UPCOMING" && m.team_a_id && m.team_b_id,
   )?.id;
 
   async function op(mid: string, o: string) {
@@ -77,7 +230,20 @@ function TournamentPage() {
       toast.error((e as Error).message);
     }
   }
-  const label = (m: any) =>
+  const canAddTeam =
+    t.type === "LEAGUE" &&
+    t.status === "LIVE" &&
+    !matches.some((m: Match) => m.kind === "LEAGUE_FINAL");
+  async function rebalance() {
+    try {
+      await api(`/tournaments/${id}/rebalance`, { body: {} });
+      qc.invalidateQueries({ queryKey: ["tournament", id] });
+      toast.success("Upcoming matches rebalanced");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+  const label = (m: Match) =>
     m.status === "LIVE"
       ? "Live"
       : m.id === nextId
@@ -180,7 +346,7 @@ function TournamentPage() {
                     </Link>
                     {m.status === "COMPLETED" && (
                       <span className="font-display tabular-nums">
-                        {m.games.map((g: any) => `${g.A}-${g.B}`).join(", ")}
+                        {m.games.map((g: Game) => `${g.A}-${g.B}`).join(", ")}
                       </span>
                     )}
                     {editable && (
@@ -277,21 +443,22 @@ function TournamentPage() {
             </table>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Top 2 play the League Final (Best of 1). The final does not change this table.
+            Top 2 play the League Final (Best of 1). The final does not change this table. PD counts
+            each game's margin, except a deuce game (loser on 20+), which counts as ±1.
           </p>
         </TabsContent>
 
         <TabsContent value="bracket">
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {[...new Set(matches.map((m: Match) => m.round))].sort().map((r) => (
+            {[...new Set(matches.map((m: Match) => m.round as number))].sort().map((r) => (
               <div key={r as number} className="flex min-w-56 flex-col justify-around gap-3">
                 <p className="text-center text-xs font-bold uppercase text-muted-foreground">
-                  {matches.find((m: any) => m.round === r)?.round_name}
+                  {matches.find((m: Match) => m.round === r)?.round_name}
                 </p>
                 {matches
-                  .filter((m: any) => m.round === r)
-                  .sort((a: any, b: any) => a.slot_index - b.slot_index)
-                  .map((m: any) => (
+                  .filter((m: Match) => m.round === r)
+                  .sort((a: Match, b: Match) => a.slot_index - b.slot_index)
+                  .map((m: Match) => (
                     <div key={m.id} className="rounded-lg border bg-card text-sm">
                       {[m.team_a_id, m.team_b_id].map((tid, k) => (
                         <div
@@ -300,7 +467,7 @@ function TournamentPage() {
                         >
                           <span>{m.status === "BYE" && k === 1 ? "BYE" : tn(tid)}</span>
                           <span className="tabular-nums">
-                            {m.games.map((g: any) => (k ? g.B : g.A)).join(" ")}
+                            {m.games.map((g: Game) => (k ? g.B : g.A)).join(" ")}
                           </span>
                         </div>
                       ))}
@@ -325,7 +492,7 @@ function TournamentPage() {
             (canAddTeam ? (
               <AddTeam
                 tournamentId={id}
-                usedPlayers={new Set(teams.flatMap((x: any) => [x.player1_id, x.player2_id]))}
+                usedPlayers={new Set(teams.flatMap((x: Team) => [x.player1_id, x.player2_id]))}
                 onDone={() => qc.invalidateQueries({ queryKey: ["tournament", id] })}
               />
             ) : (
@@ -354,13 +521,13 @@ function TournamentPage() {
         </TabsContent>
 
         <TabsContent value="results">
-          {matches.filter((m: any) => m.status === "COMPLETED").length === 0 ? (
+          {matches.filter((m: Match) => m.status === "COMPLETED").length === 0 ? (
             <Empty title="No results yet" />
           ) : (
             <ul className="divide-y rounded-xl border bg-card">
               {matches
-                .filter((m: any) => m.status === "COMPLETED")
-                .map((m: any) => (
+                .filter((m: Match) => m.status === "COMPLETED")
+                .map((m: Match) => (
                   <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
                     <span>
                       <span className="text-xs text-muted-foreground">{m.round_name} · </span>
@@ -368,7 +535,7 @@ function TournamentPage() {
                       {tn(m.winner_team_id === m.team_a_id ? m.team_b_id : m.team_a_id)}
                     </span>
                     <span className="font-display tabular-nums">
-                      {m.games.map((g: any) => `${g.A}-${g.B}`).join(", ")}
+                      {m.games.map((g: Game) => `${g.A}-${g.B}`).join(", ")}
                     </span>
                   </li>
                 ))}

@@ -30,21 +30,30 @@ export const Route = createFileRoute("/matches/$id")({
 
 type Player = { id: string; name: string };
 type TeamInfo = { id: string; name: string; players: Player[] };
+type Game = { A: number; B: number };
 type MatchInfo = {
-  status: string;
-  round_name: string;
-  winner_team_id: string | null;
-  games: { A: number; B: number }[];
+  id: string;
   kind: string;
+  round_name: string | null;
+  status: string;
   format: number;
+  winner_team_id: string | null;
+  games: Game[];
 };
-type MatchData = {
+type TournamentInfo = {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  champion_team_id: string | null;
+};
+type MatchResponse = {
   match: MatchInfo;
   teamA: TeamInfo | null;
   teamB: TeamInfo | null;
   state: MatchState | null;
   seq: number;
-  tournament: { id: string; name: string };
+  tournament: TournamentInfo;
 };
 
 function MatchPage() {
@@ -53,7 +62,7 @@ function MatchPage() {
   const { isOrganizer } = useAuth();
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["match", id],
-    queryFn: () => api(`/matches/${id}`),
+    queryFn: () => api<MatchResponse>(`/matches/${id}`),
   });
   const [busy, setBusy] = useState(false);
   // View preference only: deliberately local and not persisted, so it resets on reload.
@@ -71,14 +80,7 @@ function MatchPage() {
         <Skeleton className="h-96" />
       </Wrap>
     );
-  const { match, teamA, teamB, state, seq, tournament } = data as {
-    match: any;
-    teamA: TeamInfo | null;
-    teamB: TeamInfo | null;
-    state: MatchState | null;
-    seq: number;
-    tournament: any;
-  };
+  const { match, teamA, teamB, state, seq, tournament } = data;
   const back = (
     <Link
       to="/tournaments/$id"
@@ -132,13 +134,13 @@ function MatchPage() {
         <div className="mt-6 rounded-2xl bg-court p-8 text-center text-court-line">
           <Trophy className="mx-auto h-10 w-10 text-accent" />
           <p className="mt-2 text-sm uppercase tracking-widest opacity-80">
-            {match.round_name} · Winner
+            {resultHeading(match, tournament)}
           </p>
           <p className="font-display text-4xl font-extrabold">
             {match.winner_team_id === teamA.id ? teamA.name : teamB.name}
           </p>
           <p className="mt-4 font-display text-2xl tabular-nums">
-            {match.games.map((g: any) => `${g.A}–${g.B}`).join("  ·  ")}
+            {match.games.map((g: Game) => `${g.A}–${g.B}`).join("  ·  ")}
           </p>
           <p className="mt-1 text-sm opacity-70">
             {teamA.name} vs {teamB.name}
@@ -181,31 +183,58 @@ function MatchPage() {
         </div>
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              {(["A", "B"] as TeamKey[]).map((k) => (
-                <button
-                  key={k}
-                  disabled={!isOrganizer || state.status !== "LIVE" || busy}
-                  onClick={() => send({ type: "RALLY_WON", team: k })}
-                  className={`rounded-2xl p-4 text-center transition active:scale-95 disabled:opacity-90 ${state.servingTeam === k ? "bg-accent text-accent-foreground" : "bg-sidebar-accent"}`}
-                >
-                  <p className="truncate font-display text-lg font-bold uppercase">
-                    {teamNames[k]}
-                  </p>
-                  <p className="font-display text-8xl font-extrabold leading-none tabular-nums md:text-9xl">
-                    {state.score[k]}
-                  </p>
-                  <p className="text-xs uppercase tracking-wide opacity-70">
-                    Games {state.gamesWon[k]}
-                    {state.servingTeam === k ? " · Serving" : ""}
-                  </p>
-                  {isOrganizer && state.status === "LIVE" && (
-                    <p className="mt-2 rounded-lg bg-background/20 py-2 font-display text-2xl font-bold">
-                      +1
+            {/* Left button = team on the top side, right button = team on the bottom side (state.sides is the only source). */}
+            <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 md:gap-3">
+              {([topTeam, bottomTeam] as TeamKey[]).flatMap((k, i) => {
+                const btn = (
+                  <button
+                    key={k}
+                    disabled={!isOrganizer || state.status !== "LIVE" || busy}
+                    onClick={() => send({ type: "RALLY_WON", team: k })}
+                    className={`min-w-0 rounded-2xl p-3 text-center transition active:scale-95 disabled:opacity-90 md:p-4 ${state.servingTeam === k ? "bg-accent text-accent-foreground" : "bg-sidebar-accent"}`}
+                  >
+                    <p className="truncate font-display text-lg font-bold uppercase">
+                      {teamNames[k]}
                     </p>
-                  )}
-                </button>
-              ))}
+                    <p className="font-display text-7xl font-extrabold leading-none tabular-nums md:text-9xl">
+                      {state.score[k]}
+                    </p>
+                    <p className="text-xs uppercase tracking-wide opacity-70">
+                      Games {state.gamesWon[k]}
+                      {state.servingTeam === k ? " · Serving" : ""}
+                    </p>
+                    {isOrganizer && state.status === "LIVE" && (
+                      <p className="mt-2 rounded-lg bg-background/20 py-2 font-display text-2xl font-bold">
+                        {teamNames[k]} +1
+                      </p>
+                    )}
+                  </button>
+                );
+                return i === 0
+                  ? [
+                      btn,
+                      <Button
+                        key="switch"
+                        variant="secondary"
+                        className="h-auto flex-col gap-1 px-2 md:px-4"
+                        aria-label="Switch ends"
+                        disabled={
+                          !isOrganizer ||
+                          busy ||
+                          (state.status !== "LIVE" && state.status !== "PAUSED")
+                        }
+                        onClick={() => send({ type: "SWITCH_ENDS" })}
+                      >
+                        <ArrowLeftRight className="h-5 w-5" />
+                        <span className="text-[10px] uppercase leading-tight">
+                          Switch
+                          <br />
+                          ends
+                        </span>
+                      </Button>,
+                    ]
+                  : [btn];
+              })}
             </div>
             <div className="rounded-2xl bg-background p-4 text-foreground">
               <div className="mb-2 flex justify-end">
@@ -424,10 +453,10 @@ function Setup({
   onDone,
 }: {
   id: string;
-  match: any;
+  match: MatchInfo;
   teamA: TeamInfo;
   teamB: TeamInfo;
-  onDone: (r: any) => void;
+  onDone: (r: MatchResponse) => void;
 }) {
   const teams = { A: teamA, B: teamB };
   const [flipping, setFlipping] = useState(false);

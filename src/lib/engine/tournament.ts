@@ -277,6 +277,9 @@ export function standings(teams: string[], results: ResultRow[]): StandingRow[] 
     W.w++;
     W.points += 2;
     L.l++;
+    const d = matchPointDiff(r);
+    A.pd += d;
+    B.pd -= d;
   }
   const rows = [...map.values()];
   const h2h = (x: string, y: string) => {
