@@ -317,11 +317,12 @@ function MatchPage() {
               <div>
                 <Button
                   variant="outline"
-                  className="w-full"
+                  className="w-full text-accent-foreground"
                   disabled={busy}
                   onClick={() => setEditingStart(true)}
                 >
-                  <Pencil className="h-4 w-4" /> Edit toss, server &amp; receiver
+                  <Pencil className="h-4 w-4 text-accent-foreground" /> Edit toss, server &amp;
+                  receiver
                 </Button>
                 <p className="mt-1 text-center text-xs opacity-70">
                   Available until {START_EDIT_POINT_LIMIT} points are recorded (
@@ -429,14 +430,14 @@ function PickPlayer({
 }) {
   return (
     <div>
-      <p className="mb-2 text-sm font-semibold">{label}</p>
+      <p className="mb-2 text-sm text-accent-foreground font-semibold">{label}</p>
       <div className="grid grid-cols-2 gap-2">
         {players.map((p) => (
           <Button
             key={p.id}
             type="button"
             size="lg"
-            variant={value === p.id ? "default" : "outline"}
+            variant={value === p.id ? "default" : "secondary"}
             onClick={() => onChange(p.id)}
           >
             {p.name}
@@ -596,12 +597,14 @@ function Setup({
         <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
           {match.round_name} · Best of {match.kind === "LEAGUE_FINAL" ? 1 : match.format}
         </p>
-        <p className="font-display text-3xl font-extrabold">
+        <p className="font-display text-3xl font-extrabold text-accent-foreground">
           {teamA.name} <span className="text-muted-foreground">vs</span> {teamB.name}
         </p>
       </div>
       <section className="text-center">
-        <h2 className="mb-3 font-display text-xl font-bold uppercase">1 · Coin toss</h2>
+        <h2 className="mb-3 font-display text-xl text-accent-foreground font-bold uppercase">
+          1 · Coin toss
+        </h2>
         <div
           className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full border-4 border-primary bg-accent font-display text-2xl font-extrabold text-accent-foreground ${flipping ? "animate-spin" : ""}`}
         >
@@ -609,14 +612,16 @@ function Setup({
         </div>
         {winner ? (
           <>
-            <p className="mt-3 font-semibold">{teams[winner].name} won the toss</p>
+            <p className="mt-3 font-semibold text-accent-foreground">
+              {teams[winner].name} won the toss
+            </p>
             {edit && (
               <div className="mt-2 flex flex-wrap justify-center gap-2">
                 {(["A", "B"] as const).map((k) => (
                   <Button
                     key={k}
                     size="sm"
-                    variant={winner === k ? "default" : "outline"}
+                    variant={winner === k ? "default" : "secondary"}
                     onClick={() => setWinner(k)}
                   >
                     {teams[k].name} won
@@ -641,20 +646,20 @@ function Setup({
       </section>
       {winner && (
         <section>
-          <h2 className="mb-3 font-display text-xl font-bold uppercase">
+          <h2 className="mb-3 font-display text-xl text-accent-foreground font-bold uppercase">
             2 · {teams[winner].name} chooses
           </h2>
           <div className="grid grid-cols-2 gap-2">
             <Button
               size="lg"
-              variant={choice === "SERVE" ? "default" : "outline"}
+              variant={choice === "SERVE" ? "default" : "secondary"}
               onClick={() => setChoice("SERVE")}
             >
               Serve first
             </Button>
             <Button
               size="lg"
-              variant={choice === "COURT" ? "default" : "outline"}
+              variant={choice === "COURT" ? "default" : "secondary"}
               onClick={() => setChoice("COURT")}
             >
               Choose court side
@@ -664,7 +669,7 @@ function Setup({
       )}
       {sidePicker && (
         <section>
-          <h2 className="mb-3 font-display text-xl font-bold uppercase">
+          <h2 className="mb-3 font-display text-xl text-accent-foreground font-bold uppercase">
             3 · {teams[sidePicker].name} picks a side
           </h2>
           <div className="mx-auto grid max-w-xs overflow-hidden rounded-lg border-4 border-court-line bg-court text-court-line">
@@ -686,7 +691,9 @@ function Setup({
       )}
       {serving && aSide && (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-bold uppercase">4 · Server & receiver</h2>
+          <h2 className="font-display text-xl text-accent-foreground font-bold uppercase">
+            4 · Server & receiver
+          </h2>
           <PickPlayer
             label={`Server (${teams[serving].name})`}
             players={teams[serving].players}
@@ -701,7 +708,7 @@ function Setup({
           />
           <div className="flex gap-2">
             {edit && (
-              <Button size="lg" variant="outline" className="flex-1" onClick={edit.onCancel}>
+              <Button size="lg" variant="secondary" className="flex-1" onClick={edit.onCancel}>
                 Cancel
               </Button>
             )}
