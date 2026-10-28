@@ -3,6 +3,7 @@ import { HttpError } from "./http";
 import {
   applyAction,
   createMatch,
+  reapplyStart,
   replay,
   undoLast,
   type MatchAction,
@@ -15,6 +16,7 @@ import {
   roundName,
   scheduleLeague,
   standings,
+  teammateCounts,
   type Fixture,
   type ResultRow,
   type Rng,
@@ -263,6 +265,12 @@ export function matchesPlayedBy(
   return completed.filter((m) => m.team_a_id === teamId || m.team_b_id === teamId).length;
 }
 
+/** 1-based place of a match in the ordered, bye-free schedule, and the schedule's length. */
+export function schedulePosition(matchId: string, orderedIds: string[]) {
+  const i = orderedIds.indexOf(matchId);
+  return { position: i === -1 ? null : i + 1, total: orderedIds.length };
+}
+
 export async function getMatch(id: string) {
   const m = await loadRow(id);
   const teams = await q(
@@ -283,6 +291,11 @@ export async function getMatch(id: string) {
       m.team_a_id ?? "-",
       m.team_b_id ?? "-",
     ],
+  );
+  // Position of this match in the tournament schedule (same order the schedule tab uses).
+  const order = await q(
+    `SELECT id FROM matches WHERE tournament_id=? AND status<>'BYE' ORDER BY play_order, round, slot_index`,
+    [m.tournament_id],
   );
   const fmt = (tid: string | null) => {
     const x = teams.find((y) => y.id === tid);
@@ -312,6 +325,10 @@ export async function getMatch(id: string) {
       games: m.games_json ? JSON.parse(m.games_json) : [],
     },
     tournament: t,
+    schedule: schedulePosition(
+      id,
+      order.map((o) => o.id),
+    ),
     teamA: fmt(m.team_a_id),
     teamB: fmt(m.team_b_id),
     state: initial ? replay(initial, actions) : null,
@@ -328,6 +345,54 @@ export interface StartInput {
   receiverId: string;
 }
 
+/** The team that serves first must follow from who won the toss and what they chose. */
+export function assertTossConsistent(input: StartInput) {
+  const expectServe =
+    input.tossChoice === "SERVE" ? input.tossWinner : input.tossWinner === "A" ? "B" : "A";
+  if (input.servingTeam !== expectServe)
+    throw new HttpError(400, "The serving team does not match the coin toss decision.");
+}
+
+/**
+ * Corrects the toss result, court side, server and receiver of a live match (allowed until
+ * START_EDIT_POINT_LIMIT points are recorded). Recorded points are kept and replayed, so the current
+ * server and receiver are recalculated for the existing score. Event-sourced like every other change.
+ */
+export async function editMatchStart(id: string, input: StartInput, expectedSeq?: number) {
+  const m = await loadRow(id);
+  if (m.status !== "LIVE") throw new HttpError(400, "This match is not live.");
+  const seq = Number(m.seq);
+  if (expectedSeq !== undefined && expectedSeq !== seq)
+    throw new HttpError(409, "The score changed on another device. Reloading.");
+  assertTossConsistent(input);
+  const r = reapplyStart(
+    JSON.parse(m.initial_json) as MatchState,
+    JSON.parse(m.actions_json),
+    input,
+  );
+  const next = seq + 1;
+  const ok = await exec(
+    `UPDATE matches SET toss_json=?, initial_json=?, actions_json=?, state_json=?, seq=?, updated_at=NOW() WHERE id=? AND seq=?`,
+    [
+      JSON.stringify(input),
+      JSON.stringify(r.initial),
+      JSON.stringify(r.actions),
+      JSON.stringify(r.state),
+      next,
+      id,
+      seq,
+    ],
+  );
+  if (!ok) throw new HttpError(409, "The score changed on another device. Reloading.");
+  await exec(`INSERT INTO match_events (match_id,seq,action_json,state_json) VALUES (?,?,?,?)`, [
+    id,
+    next,
+    JSON.stringify({ type: "EDIT_START", setup: input }),
+    JSON.stringify(r.state),
+  ]);
+  return getMatch(id);
+}
+
 export async function startMatch(id: string, input: StartInput) {
   const m = await loadRow(id);
   if (m.status !== "UPCOMING" && m.status !== "SKIPPED")
@@ -339,10 +404,7 @@ export async function startMatch(id: string, input: StartInput) {
     [m.tournament_id],
   );
   if (Number(c) > 0) throw new HttpError(409, "Another match is already live. Finish it first.");
-  const expectServe =
-    input.tossChoice === "SERVE" ? input.tossWinner : input.tossWinner === "A" ? "B" : "A";
-  if (input.servingTeam !== expectServe)
-    throw new HttpError(400, "The serving team does not match the coin toss decision.");
+  assertTossConsistent(input);
   const teams = await q(`SELECT id,player1_id,player2_id FROM teams WHERE id IN (?,?)`, [
     m.team_a_id,
     m.team_b_id,
@@ -485,6 +547,16 @@ export interface PlayerStat {
   titles: number;
   runnerUps: number;
   tournaments: number;
+}
+
+/** History the team-creation wizard uses: results per player and how often pairs were teammates. */
+export async function pairingInsights() {
+  const { stats, matches } = await playerStats();
+  const together = [...teammateCounts(matches).entries()].map(([k, count]) => {
+    const [a, b] = k.split("+");
+    return { a: a!, b: b!, count };
+  });
+  return { players: stats.map((s) => ({ id: s.id, played: s.played, wins: s.wins })), together };
 }
 
 export async function playerStats(
