@@ -2,9 +2,25 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Pause, Play, RotateCw, Undo2, Trophy } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  Pause,
+  Pencil,
+  Play,
+  RotateCw,
+  Undo2,
+  Trophy,
+} from "lucide-react";
 import { api, useAuth } from "@/lib/api";
-import { applyAction, type MatchAction, type MatchState, type TeamKey } from "@/lib/engine/scoring";
+import {
+  applyAction,
+  canEditStart,
+  START_EDIT_POINT_LIMIT,
+  type MatchAction,
+  type MatchState,
+  type TeamKey,
+} from "@/lib/engine/scoring";
 import { resultHeading } from "@/lib/engine/tournament";
 import { Court, type CourtOrientation } from "@/components/Court";
 import { Button } from "@/components/ui/button";
@@ -37,6 +53,14 @@ type TeamInfo = {
   matchesPlayed: number;
 };
 type Game = { A: number; B: number };
+type Toss = {
+  tossWinner: TeamKey;
+  tossChoice: "SERVE" | "COURT";
+  teamASide: "top" | "bottom";
+  servingTeam: TeamKey;
+  serverId: string;
+  receiverId: string;
+};
 type MatchInfo = {
   id: string;
   kind: string;
@@ -44,6 +68,7 @@ type MatchInfo = {
   status: string;
   format: number;
   winner_team_id: string | null;
+  toss: Toss | null;
   games: Game[];
 };
 type TournamentInfo = {
@@ -60,6 +85,8 @@ type MatchResponse = {
   state: MatchState | null;
   seq: number;
   tournament: TournamentInfo;
+  /** Place of this match in the tournament schedule (byes excluded). */
+  schedule: { position: number | null; total: number };
 };
 
 function MatchPage() {
@@ -73,6 +100,7 @@ function MatchPage() {
   const [busy, setBusy] = useState(false);
   // View preference only: deliberately local and not persisted, so it resets on reload.
   const [orientation, setOrientation] = useState<CourtOrientation>("horizontal");
+  const [editingStart, setEditingStart] = useState(false);
 
   if (error)
     return (
@@ -86,7 +114,7 @@ function MatchPage() {
         <Skeleton className="h-96" />
       </Wrap>
     );
-  const { match, teamA, teamB, state, seq, tournament } = data;
+  const { match, teamA, teamB, state, seq, tournament, schedule } = data;
   const back = (
     <Link
       to="/tournaments/$id"
@@ -189,7 +217,10 @@ function MatchPage() {
         <div className="mb-3 flex items-center justify-between">
           {back}
           <span className="text-xs font-bold uppercase tracking-widest">
-            {match.round_name} · Game {state.gameNumber} of {state.format === 3 ? "3" : "1"}
+            {match.round_name} ·{" "}
+            {state.format === 3 || !schedule.position
+              ? `Game ${state.gameNumber} of ${state.format === 3 ? "3" : "1"}`
+              : `Match ${schedule.position} of ${schedule.total}`}
           </span>
         </div>
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -282,6 +313,23 @@ function MatchPage() {
                 <p className="mt-2 font-bold text-sidebar-primary">Deuce — win by 2 (30 caps)</p>
               )}
             </div>
+            {isOrganizer && match.toss && canEditStart(state) && (
+              <div>
+                <Button
+                  variant="outline"
+                  className="w-full text-accent-foreground"
+                  disabled={busy}
+                  onClick={() => setEditingStart(true)}
+                >
+                  <Pencil className="h-4 w-4 text-accent-foreground" /> Edit toss, server &amp;
+                  receiver
+                </Button>
+                <p className="mt-1 text-center text-xs opacity-70">
+                  Available until {START_EDIT_POINT_LIMIT} points are recorded (
+                  {START_EDIT_POINT_LIMIT - state.rallyCount} left).
+                </p>
+              </div>
+            )}
             {isOrganizer && (
               <div className="grid grid-cols-2 gap-2">
                 <Button
@@ -334,6 +382,24 @@ function MatchPage() {
           }}
         />
       )}
+      {editingStart && isOrganizer && match.toss && canEditStart(state) && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-foreground/70 p-4">
+          <div className="mx-auto max-w-3xl">
+            <Setup
+              id={id}
+              match={match}
+              teamA={teamA}
+              teamB={teamB}
+              edit={{ seq, toss: match.toss, onCancel: () => setEditingStart(false) }}
+              onDone={(r) => {
+                qc.setQueryData(["match", id], r);
+                setEditingStart(false);
+                toast.success("Toss, server and receiver updated");
+              }}
+            />
+          </div>
+        </div>
+      )}
       {state.status === "PAUSED" && (
         <div className="fixed inset-x-0 top-0 bg-destructive py-2 text-center text-sm font-bold uppercase text-destructive-foreground">
           Match paused
@@ -364,14 +430,14 @@ function PickPlayer({
 }) {
   return (
     <div>
-      <p className="mb-2 text-sm font-semibold">{label}</p>
+      <p className="mb-2 text-sm text-accent-foreground font-semibold">{label}</p>
       <div className="grid grid-cols-2 gap-2">
         {players.map((p) => (
           <Button
             key={p.id}
             type="button"
             size="lg"
-            variant={value === p.id ? "default" : "outline"}
+            variant={value === p.id ? "default" : "secondary"}
             onClick={() => onChange(p.id)}
           >
             {p.name}
@@ -463,25 +529,32 @@ function Setup({
   teamA,
   teamB,
   onDone,
+  edit,
 }: {
   id: string;
   match: MatchInfo;
   teamA: TeamInfo;
   teamB: TeamInfo;
   onDone: (r: MatchResponse) => void;
+  /** Present when correcting a live match: starts from the recorded setup instead of blank. */
+  edit?: { seq: number; toss: Toss; onCancel: () => void };
 }) {
   const teams = { A: teamA, B: teamB };
   const [flipping, setFlipping] = useState(false);
-  const [winner, setWinner] = useState<TeamKey | null>(null);
-  const [choice, setChoice] = useState<"SERVE" | "COURT" | null>(null);
-  const [aSide, setASide] = useState<"top" | "bottom" | null>(null);
-  const [server, setServer] = useState("");
-  const [receiver, setReceiver] = useState("");
+  const [winner, setWinner] = useState<TeamKey | null>(edit?.toss.tossWinner ?? null);
+  const [choice, setChoice] = useState<"SERVE" | "COURT" | null>(edit?.toss.tossChoice ?? null);
+  const [aSide, setASide] = useState<"top" | "bottom" | null>(edit?.toss.teamASide ?? null);
+  const [server, setServer] = useState(edit?.toss.serverId ?? "");
+  const [receiver, setReceiver] = useState(edit?.toss.receiverId ?? "");
   const [busy, setBusy] = useState(false);
   const serving: TeamKey | null =
     winner && choice ? (choice === "SERVE" ? winner : winner === "A" ? "B" : "A") : null;
   const sidePicker: TeamKey | null =
     winner && choice ? (choice === "COURT" ? winner : winner === "A" ? "B" : "A") : null;
+  // A changed toss can change the serving team, which makes an earlier pick invalid.
+  const receiving: TeamKey | null = serving ? (serving === "A" ? "B" : "A") : null;
+  const serverOk = !!serving && teams[serving].players.some((p) => p.id === server);
+  const receiverOk = !!receiving && teams[receiving].players.some((p) => p.id === receiver);
 
   function flip() {
     setFlipping(true);
@@ -494,8 +567,9 @@ function Setup({
     setBusy(true);
     try {
       onDone(
-        await api(`/matches/${id}/start`, {
+        await api(`/matches/${id}/${edit ? "edit-start" : "start"}`, {
           body: {
+            ...(edit ? { seq: edit.seq } : {}),
             tossWinner: winner,
             tossChoice: choice,
             teamASide: aSide,
@@ -512,24 +586,50 @@ function Setup({
   }
 
   return (
-    <div className="mt-6 space-y-6 rounded-2xl border bg-card p-6">
+    <div className={`${edit ? "" : "mt-6 "}space-y-6 rounded-2xl border bg-card p-6`}>
       <div className="text-center">
+        {edit && (
+          <p className="mb-2 rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-foreground">
+            Editing the match start. Points already recorded are kept; the current server and
+            receiver are recalculated for the current score.
+          </p>
+        )}
         <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
           {match.round_name} · Best of {match.kind === "LEAGUE_FINAL" ? 1 : match.format}
         </p>
-        <p className="font-display text-3xl font-extrabold">
+        <p className="font-display text-3xl font-extrabold text-accent-foreground">
           {teamA.name} <span className="text-muted-foreground">vs</span> {teamB.name}
         </p>
       </div>
       <section className="text-center">
-        <h2 className="mb-3 font-display text-xl font-bold uppercase">1 · Coin toss</h2>
+        <h2 className="mb-3 font-display text-xl text-accent-foreground font-bold uppercase">
+          1 · Coin toss
+        </h2>
         <div
           className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full border-4 border-primary bg-accent font-display text-2xl font-extrabold text-accent-foreground ${flipping ? "animate-spin" : ""}`}
         >
           {winner ? teams[winner].name.slice(0, 1) : "?"}
         </div>
         {winner ? (
-          <p className="mt-3 font-semibold">{teams[winner].name} won the toss</p>
+          <>
+            <p className="mt-3 font-semibold text-accent-foreground">
+              {teams[winner].name} won the toss
+            </p>
+            {edit && (
+              <div className="mt-2 flex flex-wrap justify-center gap-2">
+                {(["A", "B"] as const).map((k) => (
+                  <Button
+                    key={k}
+                    size="sm"
+                    variant={winner === k ? "default" : "secondary"}
+                    onClick={() => setWinner(k)}
+                  >
+                    {teams[k].name} won
+                  </Button>
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             <Button onClick={flip} disabled={flipping}>
@@ -546,20 +646,20 @@ function Setup({
       </section>
       {winner && (
         <section>
-          <h2 className="mb-3 font-display text-xl font-bold uppercase">
+          <h2 className="mb-3 font-display text-xl text-accent-foreground font-bold uppercase">
             2 · {teams[winner].name} chooses
           </h2>
           <div className="grid grid-cols-2 gap-2">
             <Button
               size="lg"
-              variant={choice === "SERVE" ? "default" : "outline"}
+              variant={choice === "SERVE" ? "default" : "secondary"}
               onClick={() => setChoice("SERVE")}
             >
               Serve first
             </Button>
             <Button
               size="lg"
-              variant={choice === "COURT" ? "default" : "outline"}
+              variant={choice === "COURT" ? "default" : "secondary"}
               onClick={() => setChoice("COURT")}
             >
               Choose court side
@@ -569,7 +669,7 @@ function Setup({
       )}
       {sidePicker && (
         <section>
-          <h2 className="mb-3 font-display text-xl font-bold uppercase">
+          <h2 className="mb-3 font-display text-xl text-accent-foreground font-bold uppercase">
             3 · {teams[sidePicker].name} picks a side
           </h2>
           <div className="mx-auto grid max-w-xs overflow-hidden rounded-lg border-4 border-court-line bg-court text-court-line">
@@ -591,27 +691,36 @@ function Setup({
       )}
       {serving && aSide && (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-bold uppercase">4 · Server & receiver</h2>
+          <h2 className="font-display text-xl text-accent-foreground font-bold uppercase">
+            4 · Server & receiver
+          </h2>
           <PickPlayer
             label={`Server (${teams[serving].name})`}
             players={teams[serving].players}
-            value={server}
+            value={serverOk ? server : ""}
             onChange={setServer}
           />
           <PickPlayer
             label={`Receiver (${teams[serving === "A" ? "B" : "A"].name})`}
             players={teams[serving === "A" ? "B" : "A"].players}
-            value={receiver}
+            value={receiverOk ? receiver : ""}
             onChange={setReceiver}
           />
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!server || !receiver || busy}
-            onClick={start}
-          >
-            Start match
-          </Button>
+          <div className="flex gap-2">
+            {edit && (
+              <Button size="lg" variant="secondary" className="flex-1" onClick={edit.onCancel}>
+                Cancel
+              </Button>
+            )}
+            <Button
+              size="lg"
+              className="flex-1"
+              disabled={!serverOk || !receiverOk || busy}
+              onClick={start}
+            >
+              {edit ? "Save changes" : "Start match"}
+            </Button>
+          </div>
         </section>
       )}
     </div>

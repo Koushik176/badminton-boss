@@ -1,4 +1,4 @@
-import { Crosshair } from "lucide-react";
+import { Crosshair, Feather } from "lucide-react";
 import { roleOf, type MatchState, type TeamKey } from "@/lib/engine/scoring";
 
 type Names = Record<string, string>;
@@ -32,6 +32,7 @@ function Box({
         {names[pid] ?? "?"}
       </span>
       <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest opacity-80">
+        {role === "SERVER" && <Feather className="h-3 w-3" aria-hidden="true" />}
         {role === "RECEIVER" && <Crosshair className="h-3 w-3" aria-hidden="true" />}
         {role}
       </span>

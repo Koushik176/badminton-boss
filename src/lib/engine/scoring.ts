@@ -271,6 +271,56 @@ export function undoLast(initial: MatchState, actions: MatchAction[]) {
   return { state, actions: kept, removed: actions[idx]!, dropped };
 }
 
+/** The toss, court side and first server/receiver can be corrected until this many points are in. */
+export const START_EDIT_POINT_LIMIT = 5;
+
+export interface StartSetup {
+  teamASide: CourtSide;
+  servingTeam: TeamKey;
+  serverId: string;
+  receiverId: string;
+}
+
+/** True while the opening setup of the match may still be corrected. */
+export function canEditStart(state: MatchState): boolean {
+  return (
+    (state.status === "LIVE" || state.status === "PAUSED") &&
+    state.gameNumber === 1 &&
+    state.games.length === 0 &&
+    state.rallyCount < START_EDIT_POINT_LIMIT
+  );
+}
+
+/**
+ * Replaces the opening setup (court side, serving team, first server and receiver) and replays the
+ * rallies already recorded on top of it. Rallies are stored as "team X won", so the score is kept and
+ * the current server, receiver and service courts are recalculated for that score.
+ */
+export function reapplyStart(initial: MatchState, actions: MatchAction[], setup: StartSetup) {
+  const current = replay(initial, actions);
+  if (actions[0]?.type !== "SERVER_SELECTED") throw new EngineError("The match has not started.");
+  if (!canEditStart(current))
+    throw new EngineError(
+      `The toss, server and receiver can only be changed until ${START_EDIT_POINT_LIMIT} points are recorded.`,
+    );
+  const nextInitial = createMatch({
+    teamA: initial.teams.A,
+    teamB: initial.teams.B,
+    format: initial.format,
+    teamASide: setup.teamASide,
+  });
+  const nextActions: MatchAction[] = [
+    {
+      type: "SERVER_SELECTED",
+      servingTeam: setup.servingTeam,
+      serverId: setup.serverId,
+      receiverId: setup.receiverId,
+    },
+    ...actions.slice(1),
+  ];
+  return { initial: nextInitial, actions: nextActions, state: replay(nextInitial, nextActions) };
+}
+
 /** Role of a player in the current state, for court rendering. */
 export function roleOf(state: MatchState, playerId: string) {
   if (playerId === state.serverId) return "SERVER";
