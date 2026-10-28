@@ -69,6 +69,122 @@ export function buildTeams(
   return pairs.map((players, i) => ({ players, locked: i < locked.length }));
 }
 
+const teammateKey = (a: string, b: string) => (a < b ? `${a}+${b}` : `${b}+${a}`);
+
+/** How many completed matches each pair of players has played together as a team. */
+export function teammateCounts(
+  rows: { a1: string; a2: string; b1: string; b2: string }[],
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows)
+    for (const [x, y] of [
+      [r.a1, r.a2],
+      [r.b1, r.b2],
+    ] as const) {
+      const k = teammateKey(x, y);
+      out.set(k, (out.get(k) ?? 0) + 1);
+    }
+  return out;
+}
+
+/**
+ * Playing strength in 0..1 from win/loss history. Laplace-smoothed so a player with no history
+ * is neutral (0.5) and a couple of results cannot swing it to the extremes.
+ */
+export const playerStrength = (p: { played: number; wins: number }) =>
+  (p.wins + 1) / (p.played + 2);
+
+/**
+ * Doubles teams that (1) avoid pairing players who have already been teammates often and
+ * (2) pair stronger players with weaker ones so teams are evenly matched. Locked pairs are
+ * kept exactly. Randomised restarts + swap improvement; `jitter` varies the outcome between
+ * reshuffles. Deterministic for a given `rng`.
+ */
+export function balancedTeams(
+  players: string[],
+  opts: {
+    locked?: [string, string][];
+    strength: ReadonlyMap<string, number>;
+    together: ReadonlyMap<string, number>;
+    previousKey?: string | undefined;
+    rng?: Rng | undefined;
+    restarts?: number;
+    jitter?: number;
+  },
+): TeamPair[] {
+  const rng = opts.rng ?? Math.random;
+  const locked = opts.locked ?? [];
+  // Validates locked pairs and the even player count exactly like buildTeams does.
+  const base = buildTeams(players, locked, { rng });
+  const free = players.filter((p) => !locked.some((l) => l.includes(p)));
+  if (free.length === 0) return base;
+
+  const baseJitter = opts.jitter ?? 0.04;
+  const HISTORY = 1; // cost per previous match together
+  const STRENGTH = 6; // cost of a team's combined strength being away from the average team
+
+  /** Best pairings found from random restarts, cheapest first. */
+  const search = (jitter: number) => {
+    const s = new Map(
+      free.map((p) => [p, (opts.strength.get(p) ?? 0.5) + (rng() - 0.5) * 2 * jitter]),
+    );
+    const mean = [...s.values()].reduce((a, b) => a + b, 0) / free.length;
+    const pairCost = (a: string, b: string) =>
+      HISTORY * (opts.together.get(teammateKey(a, b)) ?? 0) +
+      STRENGTH * (s.get(a)! + s.get(b)! - 2 * mean) ** 2;
+    return improve(pairCost);
+  };
+
+  const improve = (pairCost: (a: string, b: string) => number) => {
+    const candidates: { pairs: [string, string][]; cost: number }[] = [];
+    for (let r = 0; r < (opts.restarts ?? 30); r++) {
+      const order = shuffle(free, rng);
+      const pairs: [string, string][] = [];
+      for (let i = 0; i < order.length; i += 2) pairs.push([order[i]!, order[i + 1]!]);
+      // Re-pair two teams' four players whenever that lowers the total cost.
+      for (let improved = true; improved;) {
+        improved = false;
+        for (let i = 0; i < pairs.length; i++)
+          for (let j = i + 1; j < pairs.length; j++) {
+            const [a, b] = pairs[i]!;
+            const [c, d] = pairs[j]!;
+            const cur = pairCost(a, b) + pairCost(c, d);
+            const alt1 = pairCost(a, c) + pairCost(b, d);
+            const alt2 = pairCost(a, d) + pairCost(b, c);
+            if (Math.min(alt1, alt2) < cur - 1e-9) {
+              [pairs[i], pairs[j]] =
+                alt1 <= alt2
+                  ? [
+                      [a, c],
+                      [b, d],
+                    ]
+                  : [
+                      [a, d],
+                      [b, c],
+                    ];
+              improved = true;
+            }
+          }
+      }
+      candidates.push({ pairs, cost: pairs.reduce((t, [x, y]) => t + pairCost(x, y), 0) });
+    }
+    return candidates.sort((x, y) => x.cost - y.cost);
+  };
+
+  const isFresh = (c: { pairs: [string, string][] }) =>
+    pairingKey([...locked, ...c.pairs]) !== opts.previousKey;
+  let candidates = search(baseJitter);
+  // If every good result equals the previous pairing, widen the random variation and try again so
+  // reshuffling really gives a different set of teams (when one exists).
+  for (let widen = 1; widen <= 4 && !candidates.some(isFresh); widen++)
+    candidates = search((baseJitter || 0.04) * 3 * widen);
+  const pick = candidates.find(isFresh) ?? candidates[0]!;
+  return [
+    ...locked.map((players) => ({ players, locked: true })),
+    ...pick.pairs.map((players) => ({ players, locked: false })),
+  ];
+}
+
 export function roundRobin<T>(teams: T[]): [T, T][] {
   const out: [T, T][] = [];
   for (let i = 0; i < teams.length; i++)

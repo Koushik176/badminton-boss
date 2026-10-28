@@ -5,7 +5,9 @@ import { toast } from "sonner";
 import { Shuffle, Lock, Unlock, Check, X } from "lucide-react";
 import { api, useAuth } from "@/lib/api";
 import {
+  balancedTeams,
   buildTeams,
+  playerStrength,
   pairingKey,
   knockoutBracket,
   roundRobin,
@@ -46,6 +48,31 @@ function Wizard() {
     queryFn: () => api<{ id: string; name: string }[]>("/players"),
   });
   const names = useMemo(() => Object.fromEntries(players.map((p) => [p.id, p.name])), [players]);
+  // Match history and results, used to avoid repeat partners and balance strong/weak players.
+  const { data: insights } = useQuery({
+    queryKey: ["pairings"],
+    queryFn: () =>
+      api<{
+        players: { id: string; played: number; wins: number }[];
+        together: { a: string; b: string; count: number }[];
+      }>("/pairings"),
+  });
+  const history = useMemo(
+    () =>
+      insights
+        ? {
+            strength: new Map(insights.players.map((p) => [p.id, playerStrength(p)])),
+            together: new Map(
+              insights.together.map((t) => [
+                t.a < t.b ? `${t.a}+${t.b}` : `${t.b}+${t.a}`,
+                t.count,
+              ]),
+            ),
+          }
+        : null,
+    [insights],
+  );
+  const [balanced, setBalanced] = useState(true);
 
   const [step, setStep] = useState(0);
   const [info, setInfo] = useState({
@@ -79,12 +106,17 @@ function Wizard() {
   const teamName = (p: [string, string]) => `${names[p[0]]} & ${names[p[1]]}`;
   const pairKey = (p: [string, string]) => [...p].sort().join("+");
   /** Keep every locked team (and its edited name) as is; pair only the remaining players at random. */
+  /** Balanced (history + strength) when available and chosen, otherwise purely random. */
+  function generate(locked: [string, string][], previousKey?: string) {
+    return balanced && history
+      ? balancedTeams(selected, { locked, previousKey, ...history })
+      : buildTeams(selected, locked, { previousKey });
+  }
   function rebuild(locked: Team[], previous?: Team[]) {
     const prevKey = previous?.length ? pairingKey(previous.map((t) => t.players)) : undefined;
-    const built = buildTeams(
-      selected,
+    const built = generate(
       locked.map((t) => t.players),
-      { previousKey: prevKey },
+      prevKey,
     );
     const byKey = new Map(locked.map((t) => [pairKey(t.players), t]));
     setTeams(
@@ -154,7 +186,7 @@ function Wizard() {
       setTeams([]);
       if (mode === "random")
         setTeams(
-          buildTeams(selected).map((b) => ({
+          generate([]).map((b) => ({
             name: teamName(b.players),
             players: b.players,
             locked: false,
@@ -327,6 +359,32 @@ function Wizard() {
           <div>
             {mode === "random" ? (
               <div className="mb-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium">Pairing:</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={balanced ? "default" : "outline"}
+                    onClick={() => setBalanced(true)}
+                  >
+                    Balanced
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={!balanced ? "default" : "outline"}
+                    onClick={() => setBalanced(false)}
+                  >
+                    Pure random
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {balanced
+                      ? history
+                        ? "Avoids players who have often been teammates and pairs stronger with weaker players, using past results."
+                        : "Loading match history…"
+                      : "Ignores match history and results."}
+                  </span>
+                </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <Button
                     type="button"

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as StatsRouteImport } from './routes/stats'
 import { Route as ApiDashboardRouteImport } from './routes/api/dashboard'
+import { Route as ApiPairingsRouteImport } from './routes/api/pairings'
 import { Route as ApiPlayersRouteImport } from './routes/api/players'
 import { Route as ApiStatsRouteImport } from './routes/api/stats'
 import { Route as ApiTournamentsRouteImport } from './routes/api/tournaments'
@@ -30,6 +31,7 @@ import { Route as ApiPlayersIdRouteImport } from './routes/api/players/$id'
 import { Route as ApiTournamentsIdRouteImport } from './routes/api/tournaments/$id'
 import { Route as ApiMatchesIdActionRouteImport } from './routes/api/matches/$id/action'
 import { Route as ApiMatchesIdConfirmRouteImport } from './routes/api/matches/$id/confirm'
+import { Route as ApiMatchesIdEditStartRouteImport } from './routes/api/matches/$id/edit-start'
 import { Route as ApiMatchesIdScheduleRouteImport } from './routes/api/matches/$id/schedule'
 import { Route as ApiMatchesIdStartRouteImport } from './routes/api/matches/$id/start'
 import { Route as ApiTournamentsIdRebalanceRouteImport } from './routes/api/tournaments/$id/rebalance'
@@ -53,6 +55,11 @@ const StatsRoute = StatsRouteImport.update({
 const ApiDashboardRoute = ApiDashboardRouteImport.update({
   id: '/api/dashboard',
   path: '/api/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPairingsRoute = ApiPairingsRouteImport.update({
+  id: '/api/pairings',
+  path: '/api/pairings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPlayersRoute = ApiPlayersRouteImport.update({
@@ -140,6 +147,11 @@ const ApiMatchesIdConfirmRoute = ApiMatchesIdConfirmRouteImport.update({
   path: '/confirm',
   getParentRoute: () => ApiMatchesIdRoute,
 } as any)
+const ApiMatchesIdEditStartRoute = ApiMatchesIdEditStartRouteImport.update({
+  id: '/edit-start',
+  path: '/edit-start',
+  getParentRoute: () => ApiMatchesIdRoute,
+} as any)
 const ApiMatchesIdScheduleRoute = ApiMatchesIdScheduleRouteImport.update({
   id: '/schedule',
   path: '/schedule',
@@ -167,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/stats': typeof StatsRoute
   '/api/dashboard': typeof ApiDashboardRoute
+  '/api/pairings': typeof ApiPairingsRoute
   '/api/players': typeof ApiPlayersRouteWithChildren
   '/api/stats': typeof ApiStatsRoute
   '/api/tournaments': typeof ApiTournamentsRouteWithChildren
@@ -184,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/api/tournaments/$id': typeof ApiTournamentsIdRouteWithChildren
   '/api/matches/$id/action': typeof ApiMatchesIdActionRoute
   '/api/matches/$id/confirm': typeof ApiMatchesIdConfirmRoute
+  '/api/matches/$id/edit-start': typeof ApiMatchesIdEditStartRoute
   '/api/matches/$id/schedule': typeof ApiMatchesIdScheduleRoute
   '/api/matches/$id/start': typeof ApiMatchesIdStartRoute
   '/api/tournaments/$id/rebalance': typeof ApiTournamentsIdRebalanceRoute
@@ -194,6 +208,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/stats': typeof StatsRoute
   '/api/dashboard': typeof ApiDashboardRoute
+  '/api/pairings': typeof ApiPairingsRoute
   '/api/players': typeof ApiPlayersRouteWithChildren
   '/api/stats': typeof ApiStatsRoute
   '/api/tournaments': typeof ApiTournamentsRouteWithChildren
@@ -211,6 +226,7 @@ export interface FileRoutesByTo {
   '/api/tournaments/$id': typeof ApiTournamentsIdRouteWithChildren
   '/api/matches/$id/action': typeof ApiMatchesIdActionRoute
   '/api/matches/$id/confirm': typeof ApiMatchesIdConfirmRoute
+  '/api/matches/$id/edit-start': typeof ApiMatchesIdEditStartRoute
   '/api/matches/$id/schedule': typeof ApiMatchesIdScheduleRoute
   '/api/matches/$id/start': typeof ApiMatchesIdStartRoute
   '/api/tournaments/$id/rebalance': typeof ApiTournamentsIdRebalanceRoute
@@ -222,6 +238,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/stats': typeof StatsRoute
   '/api/dashboard': typeof ApiDashboardRoute
+  '/api/pairings': typeof ApiPairingsRoute
   '/api/players': typeof ApiPlayersRouteWithChildren
   '/api/stats': typeof ApiStatsRoute
   '/api/tournaments': typeof ApiTournamentsRouteWithChildren
@@ -239,6 +256,7 @@ export interface FileRoutesById {
   '/api/tournaments/$id': typeof ApiTournamentsIdRouteWithChildren
   '/api/matches/$id/action': typeof ApiMatchesIdActionRoute
   '/api/matches/$id/confirm': typeof ApiMatchesIdConfirmRoute
+  '/api/matches/$id/edit-start': typeof ApiMatchesIdEditStartRoute
   '/api/matches/$id/schedule': typeof ApiMatchesIdScheduleRoute
   '/api/matches/$id/start': typeof ApiMatchesIdStartRoute
   '/api/tournaments/$id/rebalance': typeof ApiTournamentsIdRebalanceRoute
@@ -251,6 +269,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/stats'
     | '/api/dashboard'
+    | '/api/pairings'
     | '/api/players'
     | '/api/stats'
     | '/api/tournaments'
@@ -268,6 +287,7 @@ export interface FileRouteTypes {
     | '/api/tournaments/$id'
     | '/api/matches/$id/action'
     | '/api/matches/$id/confirm'
+    | '/api/matches/$id/edit-start'
     | '/api/matches/$id/schedule'
     | '/api/matches/$id/start'
     | '/api/tournaments/$id/rebalance'
@@ -278,6 +298,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/stats'
     | '/api/dashboard'
+    | '/api/pairings'
     | '/api/players'
     | '/api/stats'
     | '/api/tournaments'
@@ -295,6 +316,7 @@ export interface FileRouteTypes {
     | '/api/tournaments/$id'
     | '/api/matches/$id/action'
     | '/api/matches/$id/confirm'
+    | '/api/matches/$id/edit-start'
     | '/api/matches/$id/schedule'
     | '/api/matches/$id/start'
     | '/api/tournaments/$id/rebalance'
@@ -305,6 +327,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/stats'
     | '/api/dashboard'
+    | '/api/pairings'
     | '/api/players'
     | '/api/stats'
     | '/api/tournaments'
@@ -322,6 +345,7 @@ export interface FileRouteTypes {
     | '/api/tournaments/$id'
     | '/api/matches/$id/action'
     | '/api/matches/$id/confirm'
+    | '/api/matches/$id/edit-start'
     | '/api/matches/$id/schedule'
     | '/api/matches/$id/start'
     | '/api/tournaments/$id/rebalance'
@@ -333,6 +357,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   StatsRoute: typeof StatsRoute
   ApiDashboardRoute: typeof ApiDashboardRoute
+  ApiPairingsRoute: typeof ApiPairingsRoute
   ApiPlayersRoute: typeof ApiPlayersRouteWithChildren
   ApiStatsRoute: typeof ApiStatsRoute
   ApiTournamentsRoute: typeof ApiTournamentsRouteWithChildren
@@ -376,6 +401,13 @@ declare module '@tanstack/react-router' {
       path: '/api/dashboard'
       fullPath: '/api/dashboard'
       preLoaderRoute: typeof ApiDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pairings': {
+      id: '/api/pairings'
+      path: '/api/pairings'
+      fullPath: '/api/pairings'
+      preLoaderRoute: typeof ApiPairingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/players': {
@@ -497,6 +529,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMatchesIdConfirmRouteImport
       parentRoute: typeof ApiMatchesIdRoute
     }
+    '/api/matches/$id/edit-start': {
+      id: '/api/matches/$id/edit-start'
+      path: '/edit-start'
+      fullPath: '/api/matches/$id/edit-start'
+      preLoaderRoute: typeof ApiMatchesIdEditStartRouteImport
+      parentRoute: typeof ApiMatchesIdRoute
+    }
     '/api/matches/$id/schedule': {
       id: '/api/matches/$id/schedule'
       path: '/schedule'
@@ -568,6 +607,7 @@ const ApiTournamentsRouteWithChildren = ApiTournamentsRoute._addFileChildren(
 interface ApiMatchesIdRouteChildren {
   ApiMatchesIdActionRoute: typeof ApiMatchesIdActionRoute
   ApiMatchesIdConfirmRoute: typeof ApiMatchesIdConfirmRoute
+  ApiMatchesIdEditStartRoute: typeof ApiMatchesIdEditStartRoute
   ApiMatchesIdScheduleRoute: typeof ApiMatchesIdScheduleRoute
   ApiMatchesIdStartRoute: typeof ApiMatchesIdStartRoute
 }
@@ -575,6 +615,7 @@ interface ApiMatchesIdRouteChildren {
 const ApiMatchesIdRouteChildren: ApiMatchesIdRouteChildren = {
   ApiMatchesIdActionRoute: ApiMatchesIdActionRoute,
   ApiMatchesIdConfirmRoute: ApiMatchesIdConfirmRoute,
+  ApiMatchesIdEditStartRoute: ApiMatchesIdEditStartRoute,
   ApiMatchesIdScheduleRoute: ApiMatchesIdScheduleRoute,
   ApiMatchesIdStartRoute: ApiMatchesIdStartRoute,
 }
@@ -588,6 +629,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   StatsRoute: StatsRoute,
   ApiDashboardRoute: ApiDashboardRoute,
+  ApiPairingsRoute: ApiPairingsRoute,
   ApiPlayersRoute: ApiPlayersRouteWithChildren,
   ApiStatsRoute: ApiStatsRoute,
   ApiTournamentsRoute: ApiTournamentsRouteWithChildren,
