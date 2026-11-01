@@ -21,6 +21,13 @@ import {
   type ResultRow,
   type Rng,
 } from "../engine/tournament";
+import {
+  MAINTENANCE_KINDS,
+  RESOURCE_CATEGORIES,
+  isValidDate,
+  parseCost,
+  summarize,
+} from "../engine/maintenance";
 
 /* ---------------- tournaments ---------------- */
 
@@ -834,4 +841,233 @@ export async function rebalanceUpcoming(tournamentId: string, rng?: Rng) {
     }
   });
   return getTournament(tournamentId);
+}
+
+/* ---------------- shared resources & maintenance expenses ---------------- */
+
+export interface ResourceInput {
+  name: string;
+  category: string;
+  notes?: string | null | undefined;
+}
+
+/** Backend rules for a shared resource (racquet, net, ground ...). Returns the cleaned values. */
+export function validateResourceInput(i: ResourceInput) {
+  const name = i.name.trim();
+  if (!name || name.length > 100) throw new HttpError(400, "Enter a name (up to 100 characters).");
+  if (!(RESOURCE_CATEGORIES as readonly string[]).includes(i.category))
+    throw new HttpError(400, "Choose a valid category.");
+  const notes = i.notes?.trim() || null;
+  if (notes && notes.length > 500) throw new HttpError(400, "Notes can be up to 500 characters.");
+  return { name, category: i.category, notes };
+}
+
+export interface MaintenanceInput {
+  resourceId: string;
+  kind: string;
+  description: string;
+  cost: number;
+  incurredOn: string;
+  paidBy?: string | null | undefined;
+}
+
+/** Backend rules for one maintenance expense. Pure, so every rejection is unit-testable. */
+export function validateMaintenanceInput(i: MaintenanceInput) {
+  if (!(MAINTENANCE_KINDS as readonly string[]).includes(i.kind))
+    throw new HttpError(400, "Choose a valid type of maintenance.");
+  const description = i.description.trim();
+  if (!description || description.length > 500)
+    throw new HttpError(400, "Describe the work (up to 500 characters).");
+  let cost: number;
+  try {
+    cost = parseCost(i.cost);
+  } catch (e) {
+    throw new HttpError(400, (e as Error).message);
+  }
+  if (!isValidDate(i.incurredOn)) throw new HttpError(400, "Enter a valid date.");
+  const paidBy = i.paidBy?.trim() || null;
+  if (paidBy && paidBy.length > 100)
+    throw new HttpError(400, "Paid by can be up to 100 characters.");
+  return {
+    resourceId: i.resourceId,
+    kind: i.kind,
+    description,
+    cost,
+    incurredOn: i.incurredOn,
+    paidBy,
+  };
+}
+
+export interface MaintenanceFilter {
+  resourceId?: string | undefined;
+  kind?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
+}
+
+/** Resources, the (optionally filtered) expense records and their totals. Reads are public. */
+export async function maintenanceOverview(filter: MaintenanceFilter = {}) {
+  for (const d of [filter.from, filter.to])
+    if (d && !isValidDate(d)) throw new HttpError(400, "Enter a valid date.");
+  const cond: string[] = [];
+  const params: unknown[] = [];
+  if (filter.resourceId) {
+    cond.push("m.resource_id=?");
+    params.push(filter.resourceId);
+  }
+  if (filter.kind) {
+    cond.push("m.kind=?");
+    params.push(filter.kind);
+  }
+  if (filter.from) {
+    cond.push("m.incurred_on>=?");
+    params.push(filter.from);
+  }
+  if (filter.to) {
+    cond.push("m.incurred_on<=?");
+    params.push(filter.to);
+  }
+  const resources = await q(
+    `SELECT id,name,category,notes,active FROM resources ORDER BY active DESC, name`,
+  );
+  const rows = await q(
+    `SELECT m.id,m.resource_id,m.kind,m.description,m.cost,m.incurred_on,m.paid_by,r.name resource_name,r.category
+     FROM maintenance_records m JOIN resources r ON r.id=m.resource_id
+     ${cond.length ? `WHERE ${cond.join(" AND ")}` : ""}
+     ORDER BY m.incurred_on DESC, m.created_at DESC`,
+    params,
+  );
+  const records = rows.map((r) => ({
+    id: r.id as string,
+    resourceId: r.resource_id as string,
+    resourceName: r.resource_name as string,
+    category: r.category as string,
+    kind: r.kind as string,
+    description: r.description as string,
+    cost: Number(r.cost),
+    date: r.incurred_on as string,
+    paidBy: (r.paid_by as string | null) ?? null,
+  }));
+  return {
+    resources: resources.map((r) => ({
+      id: r.id as string,
+      name: r.name as string,
+      category: r.category as string,
+      notes: (r.notes as string | null) ?? null,
+      active: Number(r.active) === 1,
+    })),
+    records,
+    summary: summarize(records),
+  };
+}
+
+async function audit(
+  userId: string | undefined,
+  action: string,
+  entityId: string,
+  detail: unknown,
+) {
+  await exec(`INSERT INTO audit_log (user_id,action,entity_id,detail) VALUES (?,?,?,?)`, [
+    userId ?? null,
+    action,
+    entityId,
+    JSON.stringify(detail),
+  ]);
+}
+
+async function assertUniqueResourceName(name: string, exceptId?: string) {
+  const [dup] = await q(`SELECT id FROM resources WHERE LOWER(name)=LOWER(?) AND id<>?`, [
+    name,
+    exceptId ?? "",
+  ]);
+  if (dup) throw new HttpError(409, "A resource with this name already exists.");
+}
+
+export async function createResource(input: ResourceInput, userId?: string) {
+  const v = validateResourceInput(input);
+  await assertUniqueResourceName(v.name);
+  const id = uid();
+  await exec(`INSERT INTO resources (id,name,category,notes) VALUES (?,?,?,?)`, [
+    id,
+    v.name,
+    v.category,
+    v.notes,
+  ]);
+  await audit(userId, "RESOURCE_ADDED", id, v);
+  return { id, ...v, active: true };
+}
+
+export async function updateResource(
+  id: string,
+  input: ResourceInput & { active?: boolean | undefined },
+  userId?: string,
+) {
+  const [cur] = await q(`SELECT id FROM resources WHERE id=?`, [id]);
+  if (!cur) throw new HttpError(404, "Resource not found");
+  const v = validateResourceInput(input);
+  await assertUniqueResourceName(v.name, id);
+  await exec(
+    `UPDATE resources SET name=?, category=?, notes=?, active=COALESCE(?, active) WHERE id=?`,
+    [v.name, v.category, v.notes, input.active === undefined ? null : input.active ? 1 : 0, id],
+  );
+  await audit(userId, "RESOURCE_UPDATED", id, { ...v, active: input.active });
+  return { ok: true };
+}
+
+export async function deleteResource(id: string, userId?: string) {
+  const [cur] = await q(`SELECT id FROM resources WHERE id=?`, [id]);
+  if (!cur) throw new HttpError(404, "Resource not found");
+  const [used] = await q(`SELECT id FROM maintenance_records WHERE resource_id=? LIMIT 1`, [id]);
+  if (used)
+    throw new HttpError(
+      400,
+      "This resource has maintenance records. Mark it as retired instead of deleting it.",
+    );
+  await exec(`DELETE FROM resources WHERE id=?`, [id]);
+  await audit(userId, "RESOURCE_DELETED", id, {});
+  return { ok: true };
+}
+
+async function assertResourceUsable(resourceId: string, mustBeActive: boolean) {
+  const [r] = await q(`SELECT id,active FROM resources WHERE id=?`, [resourceId]);
+  if (!r) throw new HttpError(400, "Choose a resource that exists.");
+  if (mustBeActive && Number(r.active) !== 1)
+    throw new HttpError(400, "This resource is retired. Reactivate it to record new expenses.");
+}
+
+export async function addMaintenance(input: MaintenanceInput, userId?: string) {
+  const v = validateMaintenanceInput(input);
+  await assertResourceUsable(v.resourceId, true);
+  const id = uid();
+  await exec(
+    `INSERT INTO maintenance_records (id,resource_id,kind,description,cost,incurred_on,paid_by,created_by) VALUES (?,?,?,?,?,?,?,?)`,
+    [id, v.resourceId, v.kind, v.description, v.cost, v.incurredOn, v.paidBy, userId ?? null],
+  );
+  await audit(userId, "MAINTENANCE_ADDED", id, v);
+  return { id };
+}
+
+export async function updateMaintenance(id: string, input: MaintenanceInput, userId?: string) {
+  const [cur] = await q(`SELECT id,resource_id FROM maintenance_records WHERE id=?`, [id]);
+  if (!cur) throw new HttpError(404, "Maintenance record not found");
+  const v = validateMaintenanceInput(input);
+  // Keeping a record on a retired resource is fine; moving it to one is not.
+  await assertResourceUsable(v.resourceId, v.resourceId !== cur.resource_id);
+  await exec(
+    `UPDATE maintenance_records SET resource_id=?, kind=?, description=?, cost=?, incurred_on=?, paid_by=? WHERE id=?`,
+    [v.resourceId, v.kind, v.description, v.cost, v.incurredOn, v.paidBy, id],
+  );
+  await audit(userId, "MAINTENANCE_UPDATED", id, v);
+  return { ok: true };
+}
+
+export async function deleteMaintenance(id: string, userId?: string) {
+  const [cur] = await q(
+    `SELECT id,resource_id,kind,description,cost,incurred_on FROM maintenance_records WHERE id=?`,
+    [id],
+  );
+  if (!cur) throw new HttpError(404, "Maintenance record not found");
+  await exec(`DELETE FROM maintenance_records WHERE id=?`, [id]);
+  await audit(userId, "MAINTENANCE_DELETED", id, cur);
+  return { ok: true };
 }
