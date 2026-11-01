@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Trophy, BarChart3, LogIn, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Trophy, BarChart3, Wrench, LogIn, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { setSession, useAuth } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ const NAV = [
   { to: "/tournaments", label: "Tournaments", icon: Trophy },
   { to: "/players", label: "Players", icon: Users },
   { to: "/stats", label: "Stats", icon: BarChart3 },
+  { to: "/maintenance", label: "Maintenance", icon: Wrench },
 ] as const;
 
 export function Shuttle({ className = "" }: { className?: string }) {
@@ -94,7 +95,7 @@ export function AppShell({
         </header>
         <main className="mx-auto max-w-6xl p-4 md:p-8">{children}</main>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t bg-sidebar text-sidebar-foreground md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t bg-sidebar text-sidebar-foreground md:hidden">
         {NAV.map((n) => (
           <Link
             key={n.to}
