@@ -105,4 +105,18 @@ CREATE TABLE IF NOT EXISTS maintenance_records (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX (resource_id),
   INDEX (incurred_on)
+);
+CREATE TABLE IF NOT EXISTS dues (
+  id VARCHAR(36) PRIMARY KEY,
+  debtor_id VARCHAR(36) NOT NULL,
+  creditor_id VARCHAR(36) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  reason VARCHAR(200),
+  on_date VARCHAR(10) NOT NULL,
+  paid TINYINT NOT NULL DEFAULT 0,
+  paid_on VARCHAR(10),
+  created_by VARCHAR(36),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX (debtor_id),
+  INDEX (creditor_id)
 )

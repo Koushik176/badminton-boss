@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DuesPanel } from "@/components/DuesPanel";
 
 export const Route = createFileRoute("/maintenance")({
   head: () => ({
@@ -66,6 +68,7 @@ function MaintenancePage() {
   const qc = useQueryClient();
   const [filters, setFilters] = useState({ resourceId: "", kind: "", from: "", to: "" });
   const [editing, setEditing] = useState<Expense | "new" | null>(null);
+  const [tab, setTab] = useState("expenses");
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -98,184 +101,198 @@ function MaintenancePage() {
     <AppShell
       title="Maintenance"
       actions={
-        isOrganizer ? (
+        isOrganizer && tab === "expenses" ? (
           <Button size="sm" onClick={() => setEditing("new")}>
             <Plus className="h-4 w-4" /> Record expense
           </Button>
         ) : null
       }
     >
-      {error ? (
-        <p className="text-destructive">{(error as Error).message}</p>
-      ) : isLoading || !data ? (
-        <Skeleton className="h-64" />
-      ) : (
-        <div className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Stat label="Total spent" value={formatMoney(data.summary.total)} />
-            <Stat label={`This month (${monthKey})`} value={formatMoney(thisMonth)} />
-            <Stat label="Expenses recorded" value={String(data.summary.count)} />
-          </div>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="expenses">Expenses &amp; equipment</TabsTrigger>
+          <TabsTrigger value="splits">Splits</TabsTrigger>
+        </TabsList>
+        <TabsContent value="splits">
+          <DuesPanel isOrganizer={isOrganizer} />
+        </TabsContent>
+        <TabsContent value="expenses">
+          {error ? (
+            <p className="text-destructive">{(error as Error).message}</p>
+          ) : isLoading || !data ? (
+            <Skeleton className="h-64" />
+          ) : (
+            <div className="space-y-6">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Stat label="Total spent" value={formatMoney(data.summary.total)} />
+                <Stat label={`This month (${monthKey})`} value={formatMoney(thisMonth)} />
+                <Stat label="Expenses recorded" value={String(data.summary.count)} />
+              </div>
 
-          <div className="grid gap-2 rounded-xl border bg-card p-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div>
-              <Label className="text-xs">Resource</Label>
-              <select
-                className={field}
-                value={filters.resourceId}
-                onChange={(e) => setFilters({ ...filters, resourceId: e.target.value })}
-              >
-                <option value="">All</option>
-                {data.resources.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs">Type</Label>
-              <select
-                className={field}
-                value={filters.kind}
-                onChange={(e) => setFilters({ ...filters, kind: e.target.value })}
-              >
-                <option value="">All</option>
-                {MAINTENANCE_KINDS.map((k) => (
-                  <option key={k} value={k}>
-                    {KIND_LABEL[k]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs">From</Label>
-              <Input
-                type="date"
-                value={filters.from}
-                onChange={(e) => setFilters({ ...filters, from: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">To</Label>
-              <Input
-                type="date"
-                value={filters.to}
-                onChange={(e) => setFilters({ ...filters, to: e.target.value })}
-              />
-            </div>
-            <div className="flex items-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilters({ resourceId: "", kind: "", from: "", to: "" })}
-              >
-                <X className="h-4 w-4" /> Clear filters
-              </Button>
-            </div>
-          </div>
+              <div className="grid gap-2 rounded-xl border bg-card p-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div>
+                  <Label className="text-xs">Resource</Label>
+                  <select
+                    className={field}
+                    value={filters.resourceId}
+                    onChange={(e) => setFilters({ ...filters, resourceId: e.target.value })}
+                  >
+                    <option value="">All</option>
+                    {data.resources.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs">Type</Label>
+                  <select
+                    className={field}
+                    value={filters.kind}
+                    onChange={(e) => setFilters({ ...filters, kind: e.target.value })}
+                  >
+                    <option value="">All</option>
+                    {MAINTENANCE_KINDS.map((k) => (
+                      <option key={k} value={k}>
+                        {KIND_LABEL[k]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs">From</Label>
+                  <Input
+                    type="date"
+                    value={filters.from}
+                    onChange={(e) => setFilters({ ...filters, from: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">To</Label>
+                  <Input
+                    type="date"
+                    value={filters.to}
+                    onChange={(e) => setFilters({ ...filters, to: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFilters({ resourceId: "", kind: "", from: "", to: "" })}
+                  >
+                    <X className="h-4 w-4" /> Clear filters
+                  </Button>
+                </div>
+              </div>
 
-          {data.summary.byCategory.length > 0 && (
-            <section className="rounded-xl border bg-card p-4">
-              <h2 className="mb-3 font-display text-lg font-bold uppercase">Spend by category</h2>
-              <ul className="space-y-2">
-                {data.summary.byCategory.map((c) => (
-                  <li key={c.key} className="text-sm">
-                    <div className="mb-1 flex justify-between">
-                      <span>
-                        {catLabel(c.key)} <span className="text-muted-foreground">({c.count})</span>
-                      </span>
-                      <span className="font-semibold tabular-nums">{formatMoney(c.total)}</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted">
-                      <div
-                        className="h-2 rounded-full bg-primary"
-                        style={{ width: `${(c.total / maxCat) * 100}%` }}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+              {data.summary.byCategory.length > 0 && (
+                <section className="rounded-xl border bg-card p-4">
+                  <h2 className="mb-3 font-display text-lg font-bold uppercase">
+                    Spend by category
+                  </h2>
+                  <ul className="space-y-2">
+                    {data.summary.byCategory.map((c) => (
+                      <li key={c.key} className="text-sm">
+                        <div className="mb-1 flex justify-between">
+                          <span>
+                            {catLabel(c.key)}{" "}
+                            <span className="text-muted-foreground">({c.count})</span>
+                          </span>
+                          <span className="font-semibold tabular-nums">{formatMoney(c.total)}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted">
+                          <div
+                            className="h-2 rounded-full bg-primary"
+                            style={{ width: `${(c.total / maxCat) * 100}%` }}
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
 
-          {editing && isOrganizer && (
-            <ExpenseForm
-              key={editing === "new" ? "new" : editing.id}
-              resources={data.resources}
-              expense={editing === "new" ? null : editing}
-              onClose={() => setEditing(null)}
-              onSaved={() => {
-                setEditing(null);
-                refresh();
-              }}
-            />
-          )}
+              {editing && isOrganizer && (
+                <ExpenseForm
+                  key={editing === "new" ? "new" : editing.id}
+                  resources={data.resources}
+                  expense={editing === "new" ? null : editing}
+                  onClose={() => setEditing(null)}
+                  onSaved={() => {
+                    setEditing(null);
+                    refresh();
+                  }}
+                />
+              )}
 
-          <section>
-            <h2 className="mb-2 font-display text-lg font-bold uppercase">Expenses</h2>
-            {data.records.length === 0 ? (
-              <Empty title="No maintenance expenses yet">
-                {isOrganizer
-                  ? "Record a repair, restring or purchase with “Record expense”."
-                  : "Nothing has been recorded for these filters."}
-              </Empty>
-            ) : (
-              <ul className="divide-y rounded-xl border bg-card">
-                {data.records.map((e) => (
-                  <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
-                    <span className="w-24 text-xs tabular-nums text-muted-foreground">
-                      {e.date}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">
-                        {e.resourceName}{" "}
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                          {kindLabel(e.kind)}
+              <section>
+                <h2 className="mb-2 font-display text-lg font-bold uppercase">Expenses</h2>
+                {data.records.length === 0 ? (
+                  <Empty title="No maintenance expenses yet">
+                    {isOrganizer
+                      ? "Record a repair, restring or purchase with “Record expense”."
+                      : "Nothing has been recorded for these filters."}
+                  </Empty>
+                ) : (
+                  <ul className="divide-y rounded-xl border bg-card">
+                    {data.records.map((e) => (
+                      <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
+                        <span className="w-24 text-xs tabular-nums text-muted-foreground">
+                          {e.date}
                         </span>
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {e.description}
-                        {e.paidBy ? ` · paid by ${e.paidBy}` : ""}
-                      </p>
-                    </div>
-                    <span className="font-display text-lg font-bold tabular-nums">
-                      {formatMoney(e.cost)}
-                    </span>
-                    {isOrganizer && (
-                      <div className="flex gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label="Edit expense"
-                          onClick={() => setEditing(e)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label="Delete expense"
-                          onClick={() => remove(e)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium">
+                            {e.resourceName}{" "}
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                              {kindLabel(e.kind)}
+                            </span>
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {e.description}
+                            {e.paidBy ? ` · paid by ${e.paidBy}` : ""}
+                          </p>
+                        </div>
+                        <span className="font-display text-lg font-bold tabular-nums">
+                          {formatMoney(e.cost)}
+                        </span>
+                        {isOrganizer && (
+                          <div className="flex gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              aria-label="Edit expense"
+                              onClick={() => setEditing(e)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              aria-label="Delete expense"
+                              onClick={() => remove(e)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
 
-          <ResourcesPanel
-            resources={data.resources}
-            totals={new Map(data.summary.byResource.map((b) => [b.key, b]))}
-            isOrganizer={isOrganizer}
-            onChanged={refresh}
-          />
-        </div>
-      )}
+              <ResourcesPanel
+                resources={data.resources}
+                totals={new Map(data.summary.byResource.map((b) => [b.key, b]))}
+                isOrganizer={isOrganizer}
+                onChanged={refresh}
+              />
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </AppShell>
   );
 }
@@ -428,6 +445,81 @@ function ExpenseForm({
   );
 }
 
+/** Inline form to rename a piece of equipment, change its category or notes. */
+function EditResourceRow({
+  resource,
+  onClose,
+  onSaved,
+}: {
+  resource: Resource;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(resource.name);
+  const [category, setCategory] = useState(resource.category);
+  const [notes, setNotes] = useState(resource.notes ?? "");
+  const [busy, setBusy] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api(`/resources/${resource.id}`, {
+        method: "PUT",
+        body: { name, category, notes: notes.trim() || null, active: resource.active },
+      });
+      toast.success("Equipment updated");
+      onSaved();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="grid gap-2 sm:grid-cols-4">
+      <Input
+        className="sm:col-span-2"
+        value={name}
+        maxLength={100}
+        aria-label="Name"
+        onChange={(e) => setName(e.target.value)}
+        required
+      />
+      <select
+        className={field}
+        value={category}
+        aria-label="Category"
+        onChange={(e) => setCategory(e.target.value)}
+      >
+        {RESOURCE_CATEGORIES.map((c) => (
+          <option key={c} value={c}>
+            {CATEGORY_LABEL[c]}
+          </option>
+        ))}
+      </select>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={busy || !name.trim()}>
+          Save
+        </Button>
+        <Button type="button" variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
+      <Input
+        className="sm:col-span-4"
+        placeholder="Notes (optional)"
+        value={notes}
+        maxLength={500}
+        aria-label="Notes"
+        onChange={(e) => setNotes(e.target.value)}
+      />
+    </form>
+  );
+}
+
 function ResourcesPanel({
   resources,
   totals,
@@ -442,6 +534,7 @@ function ResourcesPanel({
   const [name, setName] = useState("");
   const [category, setCategory] = useState("RACQUET");
   const [notes, setNotes] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -524,6 +617,19 @@ function ResourcesPanel({
         <ul className="divide-y rounded-xl border bg-card">
           {resources.map((r) => {
             const t = totals.get(r.id);
+            if (editingId === r.id)
+              return (
+                <li key={r.id} className="p-3">
+                  <EditResourceRow
+                    resource={r}
+                    onClose={() => setEditingId(null)}
+                    onSaved={() => {
+                      setEditingId(null);
+                      onChanged();
+                    }}
+                  />
+                </li>
+              );
             return (
               <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
                 <div className="min-w-0 flex-1">
@@ -543,6 +649,14 @@ function ResourcesPanel({
                 </span>
                 {isOrganizer && (
                   <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label="Edit resource"
+                      onClick={() => setEditingId(r.id)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                     <Button
                       size="icon"
                       variant="ghost"

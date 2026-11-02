@@ -71,6 +71,15 @@ export const Route = createFileRoute("/api/players/$id")({
         ]);
         if (used)
           throw new HttpError(400, "This player has tournament history and cannot be deleted.");
+        const [owes] = await q("SELECT id FROM dues WHERE debtor_id=? OR creditor_id=? LIMIT 1", [
+          params.id,
+          params.id,
+        ]);
+        if (owes)
+          throw new HttpError(
+            400,
+            "This player has recorded dues. Delete those dues first, then delete the player.",
+          );
         await exec("DELETE FROM players WHERE id=?", [params.id]);
         return json({ ok: true });
       }),

@@ -21,6 +21,7 @@ import {
   type ResultRow,
   type Rng,
 } from "../engine/tournament";
+import { balances, duesTotals, type DueLike } from "../engine/dues";
 import {
   MAINTENANCE_KINDS,
   RESOURCE_CATEGORIES,
@@ -1069,5 +1070,132 @@ export async function deleteMaintenance(id: string, userId?: string) {
   if (!cur) throw new HttpError(404, "Maintenance record not found");
   await exec(`DELETE FROM maintenance_records WHERE id=?`, [id]);
   await audit(userId, "MAINTENANCE_DELETED", id, cur);
+  return { ok: true };
+}
+
+/* ---------------- manual dues (who owes whom) ---------------- */
+
+export interface DueInput {
+  debtorId: string;
+  creditorId: string;
+  amount: number;
+  reason?: string | null | undefined;
+  date?: string | undefined;
+}
+
+const MAX_DUES_PER_REQUEST = 50;
+const todayUtc = () => new Date().toISOString().slice(0, 10);
+
+/** Backend rules for one due. Pure, so every rejection is unit-testable. */
+export function validateDueInput(i: DueInput) {
+  if (!i.debtorId || !i.creditorId) throw new HttpError(400, "Choose both players.");
+  if (i.debtorId === i.creditorId) throw new HttpError(400, "A player cannot owe themselves.");
+  let amount: number;
+  try {
+    amount = parseCost(i.amount);
+  } catch (e) {
+    throw new HttpError(400, (e as Error).message);
+  }
+  if (amount <= 0) throw new HttpError(400, "The amount must be above zero.");
+  const reason = i.reason?.trim() || null;
+  if (reason && reason.length > 200)
+    throw new HttpError(400, "The note can be up to 200 characters.");
+  const date = i.date ?? todayUtc();
+  if (!isValidDate(date)) throw new HttpError(400, "Enter a valid date.");
+  return { debtorId: i.debtorId, creditorId: i.creditorId, amount, reason, date };
+}
+
+async function assertPlayersExist(ids: string[]) {
+  const unique = [...new Set(ids)];
+  const known = await q(
+    `SELECT id FROM players WHERE id IN (${unique.map(() => "?").join(",")})`,
+    unique,
+  );
+  if (known.length !== unique.length) throw new HttpError(400, "Unknown player selected.");
+}
+
+/** Every due with player names, plus outstanding balances and totals. Reads are public. */
+export async function listDues() {
+  const rows = await q(
+    `SELECT d.id,d.debtor_id,d.creditor_id,d.amount,d.reason,d.on_date,d.paid,d.paid_on,pd.name debtor_name,pc.name creditor_name
+     FROM dues d JOIN players pd ON pd.id=d.debtor_id JOIN players pc ON pc.id=d.creditor_id
+     ORDER BY d.on_date DESC, d.created_at DESC`,
+  );
+  const dues = rows.map((r) => ({
+    id: r.id as string,
+    debtorId: r.debtor_id as string,
+    debtorName: r.debtor_name as string,
+    creditorId: r.creditor_id as string,
+    creditorName: r.creditor_name as string,
+    amount: Number(r.amount),
+    reason: (r.reason as string | null) ?? null,
+    date: r.on_date as string,
+    paid: Number(r.paid) === 1,
+    paidOn: (r.paid_on as string | null) ?? null,
+  })) satisfies (DueLike & { paidOn: string | null })[];
+  return { dues, balances: balances(dues), totals: duesTotals(dues) };
+}
+
+/** Records one or several dues owed to the same player (e.g. after a manual equal split). */
+export async function createDues(
+  input: {
+    creditorId: string;
+    entries: { debtorId: string; amount: number }[];
+    reason?: string | null | undefined;
+    date?: string | undefined;
+  },
+  userId?: string,
+) {
+  if (input.entries.length === 0) throw new HttpError(400, "Pick at least one player.");
+  if (input.entries.length > MAX_DUES_PER_REQUEST)
+    throw new HttpError(400, `At most ${MAX_DUES_PER_REQUEST} players at a time.`);
+  const debtors = input.entries.map((e) => e.debtorId);
+  if (new Set(debtors).size !== debtors.length)
+    throw new HttpError(400, "A player appears more than once.");
+  const cleaned = input.entries.map((e) =>
+    validateDueInput({
+      debtorId: e.debtorId,
+      creditorId: input.creditorId,
+      amount: e.amount,
+      reason: input.reason,
+      date: input.date,
+    }),
+  );
+  await assertPlayersExist([input.creditorId, ...debtors]);
+  const ids = cleaned.map(() => uid());
+  await transaction(
+    cleaned.map((c, i): Stmt => [
+      `INSERT INTO dues (id,debtor_id,creditor_id,amount,reason,on_date,created_by) VALUES (?,?,?,?,?,?,?)`,
+      [ids[i], c.debtorId, c.creditorId, c.amount, c.reason, c.date, userId ?? null],
+    ]),
+  );
+  await audit(userId, "DUES_ADDED", ids[0]!, { count: cleaned.length, dues: cleaned });
+  return { ids };
+}
+
+/** Edits a due. Marking it paid stamps today's date, marking it unpaid clears it. */
+export async function updateDue(id: string, input: DueInput & { paid: boolean }, userId?: string) {
+  const [cur] = await q(`SELECT id,paid,paid_on FROM dues WHERE id=?`, [id]);
+  if (!cur) throw new HttpError(404, "Due not found");
+  const v = validateDueInput(input);
+  await assertPlayersExist([v.debtorId, v.creditorId]);
+  const paidOn = input.paid
+    ? Number(cur.paid) === 1
+      ? (cur.paid_on ?? todayUtc())
+      : todayUtc()
+    : null;
+  await exec(
+    `UPDATE dues SET debtor_id=?, creditor_id=?, amount=?, reason=?, on_date=?, paid=?, paid_on=? WHERE id=?`,
+    [v.debtorId, v.creditorId, v.amount, v.reason, v.date, input.paid ? 1 : 0, paidOn, id],
+  );
+  await audit(userId, "DUE_UPDATED", id, { ...v, paid: input.paid });
+  return { ok: true };
+}
+
+export async function deleteDue(id: string, userId?: string) {
+  const [cur] = await q(`SELECT id,debtor_id,creditor_id,amount,paid FROM dues WHERE id=?`, [id]);
+  if (!cur) throw new HttpError(404, "Due not found");
+  await exec(`DELETE FROM dues WHERE id=?`, [id]);
+  await audit(userId, "DUE_DELETED", id, cur);
   return { ok: true };
 }

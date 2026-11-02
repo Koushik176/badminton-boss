@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as StatsRouteImport } from './routes/stats'
 import { Route as ApiDashboardRouteImport } from './routes/api/dashboard'
+import { Route as ApiDuesRouteImport } from './routes/api/dues'
 import { Route as ApiMaintenanceRouteImport } from './routes/api/maintenance'
 import { Route as ApiPairingsRouteImport } from './routes/api/pairings'
 import { Route as ApiPlayersRouteImport } from './routes/api/players'
@@ -29,6 +30,7 @@ import { Route as TournamentsNewRouteImport } from './routes/tournaments.new'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
 import { Route as ApiAuthSetupRouteImport } from './routes/api/auth/setup'
 import { Route as ApiAuthStatusRouteImport } from './routes/api/auth/status'
+import { Route as ApiDuesIdRouteImport } from './routes/api/dues/$id'
 import { Route as ApiMaintenanceIdRouteImport } from './routes/api/maintenance/$id'
 import { Route as ApiMatchesIdRouteImport } from './routes/api/matches/$id'
 import { Route as ApiPlayersIdRouteImport } from './routes/api/players/$id'
@@ -65,6 +67,11 @@ const StatsRoute = StatsRouteImport.update({
 const ApiDashboardRoute = ApiDashboardRouteImport.update({
   id: '/api/dashboard',
   path: '/api/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDuesRoute = ApiDuesRouteImport.update({
+  id: '/api/dues',
+  path: '/api/dues',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMaintenanceRoute = ApiMaintenanceRouteImport.update({
@@ -142,6 +149,11 @@ const ApiAuthStatusRoute = ApiAuthStatusRouteImport.update({
   path: '/api/auth/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDuesIdRoute = ApiDuesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiDuesRoute,
+} as any)
 const ApiMaintenanceIdRoute = ApiMaintenanceIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -210,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/maintenance': typeof MaintenanceRoute
   '/stats': typeof StatsRoute
   '/api/dashboard': typeof ApiDashboardRoute
+  '/api/dues': typeof ApiDuesRouteWithChildren
   '/api/maintenance': typeof ApiMaintenanceRouteWithChildren
   '/api/pairings': typeof ApiPairingsRoute
   '/api/players': typeof ApiPlayersRouteWithChildren
@@ -225,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/setup': typeof ApiAuthSetupRoute
   '/api/auth/status': typeof ApiAuthStatusRoute
+  '/api/dues/$id': typeof ApiDuesIdRoute
   '/api/maintenance/$id': typeof ApiMaintenanceIdRoute
   '/api/matches/$id': typeof ApiMatchesIdRouteWithChildren
   '/api/players/$id': typeof ApiPlayersIdRoute
@@ -244,6 +258,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceRoute
   '/stats': typeof StatsRoute
   '/api/dashboard': typeof ApiDashboardRoute
+  '/api/dues': typeof ApiDuesRouteWithChildren
   '/api/maintenance': typeof ApiMaintenanceRouteWithChildren
   '/api/pairings': typeof ApiPairingsRoute
   '/api/players': typeof ApiPlayersRouteWithChildren
@@ -259,6 +274,7 @@ export interface FileRoutesByTo {
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/setup': typeof ApiAuthSetupRoute
   '/api/auth/status': typeof ApiAuthStatusRoute
+  '/api/dues/$id': typeof ApiDuesIdRoute
   '/api/maintenance/$id': typeof ApiMaintenanceIdRoute
   '/api/matches/$id': typeof ApiMatchesIdRouteWithChildren
   '/api/players/$id': typeof ApiPlayersIdRoute
@@ -279,6 +295,7 @@ export interface FileRoutesById {
   '/maintenance': typeof MaintenanceRoute
   '/stats': typeof StatsRoute
   '/api/dashboard': typeof ApiDashboardRoute
+  '/api/dues': typeof ApiDuesRouteWithChildren
   '/api/maintenance': typeof ApiMaintenanceRouteWithChildren
   '/api/pairings': typeof ApiPairingsRoute
   '/api/players': typeof ApiPlayersRouteWithChildren
@@ -294,6 +311,7 @@ export interface FileRoutesById {
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/setup': typeof ApiAuthSetupRoute
   '/api/auth/status': typeof ApiAuthStatusRoute
+  '/api/dues/$id': typeof ApiDuesIdRoute
   '/api/maintenance/$id': typeof ApiMaintenanceIdRoute
   '/api/matches/$id': typeof ApiMatchesIdRouteWithChildren
   '/api/players/$id': typeof ApiPlayersIdRoute
@@ -315,6 +333,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/stats'
     | '/api/dashboard'
+    | '/api/dues'
     | '/api/maintenance'
     | '/api/pairings'
     | '/api/players'
@@ -330,6 +349,7 @@ export interface FileRouteTypes {
     | '/api/auth/login'
     | '/api/auth/setup'
     | '/api/auth/status'
+    | '/api/dues/$id'
     | '/api/maintenance/$id'
     | '/api/matches/$id'
     | '/api/players/$id'
@@ -349,6 +369,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/stats'
     | '/api/dashboard'
+    | '/api/dues'
     | '/api/maintenance'
     | '/api/pairings'
     | '/api/players'
@@ -364,6 +385,7 @@ export interface FileRouteTypes {
     | '/api/auth/login'
     | '/api/auth/setup'
     | '/api/auth/status'
+    | '/api/dues/$id'
     | '/api/maintenance/$id'
     | '/api/matches/$id'
     | '/api/players/$id'
@@ -383,6 +405,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/stats'
     | '/api/dashboard'
+    | '/api/dues'
     | '/api/maintenance'
     | '/api/pairings'
     | '/api/players'
@@ -398,6 +421,7 @@ export interface FileRouteTypes {
     | '/api/auth/login'
     | '/api/auth/setup'
     | '/api/auth/status'
+    | '/api/dues/$id'
     | '/api/maintenance/$id'
     | '/api/matches/$id'
     | '/api/players/$id'
@@ -418,6 +442,7 @@ export interface RootRouteChildren {
   MaintenanceRoute: typeof MaintenanceRoute
   StatsRoute: typeof StatsRoute
   ApiDashboardRoute: typeof ApiDashboardRoute
+  ApiDuesRoute: typeof ApiDuesRouteWithChildren
   ApiMaintenanceRoute: typeof ApiMaintenanceRouteWithChildren
   ApiPairingsRoute: typeof ApiPairingsRoute
   ApiPlayersRoute: typeof ApiPlayersRouteWithChildren
@@ -471,6 +496,13 @@ declare module '@tanstack/react-router' {
       path: '/api/dashboard'
       fullPath: '/api/dashboard'
       preLoaderRoute: typeof ApiDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dues': {
+      id: '/api/dues'
+      path: '/api/dues'
+      fullPath: '/api/dues'
+      preLoaderRoute: typeof ApiDuesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/maintenance': {
@@ -578,6 +610,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dues/$id': {
+      id: '/api/dues/$id'
+      path: '/$id'
+      fullPath: '/api/dues/$id'
+      preLoaderRoute: typeof ApiDuesIdRouteImport
+      parentRoute: typeof ApiDuesRoute
+    }
     '/api/maintenance/$id': {
       id: '/api/maintenance/$id'
       path: '/$id'
@@ -664,6 +703,17 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface ApiDuesRouteChildren {
+  ApiDuesIdRoute: typeof ApiDuesIdRoute
+}
+
+const ApiDuesRouteChildren: ApiDuesRouteChildren = {
+  ApiDuesIdRoute: ApiDuesIdRoute,
+}
+
+const ApiDuesRouteWithChildren =
+  ApiDuesRoute._addFileChildren(ApiDuesRouteChildren)
 
 interface ApiMaintenanceRouteChildren {
   ApiMaintenanceIdRoute: typeof ApiMaintenanceIdRoute
@@ -752,6 +802,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceRoute: MaintenanceRoute,
   StatsRoute: StatsRoute,
   ApiDashboardRoute: ApiDashboardRoute,
+  ApiDuesRoute: ApiDuesRouteWithChildren,
   ApiMaintenanceRoute: ApiMaintenanceRouteWithChildren,
   ApiPairingsRoute: ApiPairingsRoute,
   ApiPlayersRoute: ApiPlayersRouteWithChildren,
