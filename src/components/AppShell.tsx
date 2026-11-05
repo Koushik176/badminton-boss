@@ -22,6 +22,19 @@ export function Shuttle({ className = "" }: { className?: string }) {
   );
 }
 
+/** The club logo from the public folder. */
+export function Logo({ className = "" }: { className?: string }) {
+  return (
+    <img
+      src="/android-chrome-192x192.png"
+      alt="KHB Badminton"
+      width={192}
+      height={192}
+      className={`shrink-0 rounded-full object-cover ${className}`}
+    />
+  );
+}
+
 export function AppShell({
   title,
   actions,
@@ -37,7 +50,7 @@ export function AppShell({
     <div className="min-h-screen bg-background md:flex">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-sidebar p-4 text-sidebar-foreground md:flex">
         <Link to="/" className="mb-8 flex items-center gap-2 px-2">
-          <Shuttle className="h-8 w-8 text-sidebar-primary" />
+          <Logo className="h-10 w-10" />
           <span className="font-display text-2xl font-extrabold uppercase tracking-wide">
             Smash Court
           </span>
@@ -79,7 +92,7 @@ export function AppShell({
       <div className="min-w-0 flex-1 pb-24 md:pb-0">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b bg-background/90 px-4 py-3 backdrop-blur md:px-8">
           <div className="flex items-center gap-2">
-            <Shuttle className="h-7 w-7 text-primary md:hidden" />
+            <Logo className="h-9 w-9 md:hidden" />
             <h1 className="font-display text-2xl font-bold uppercase tracking-wide md:text-3xl">
               {title}
             </h1>
