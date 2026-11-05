@@ -14,6 +14,13 @@ import {
 } from "@/lib/engine/maintenance";
 import { AppShell, Empty } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -214,18 +221,36 @@ function MaintenancePage() {
                 </section>
               )}
 
-              {editing && isOrganizer && (
-                <ExpenseForm
-                  key={editing === "new" ? "new" : editing.id}
-                  resources={data.resources}
-                  expense={editing === "new" ? null : editing}
-                  onClose={() => setEditing(null)}
-                  onSaved={() => {
-                    setEditing(null);
-                    refresh();
-                  }}
-                />
-              )}
+              {/* A modal, so the form is always in view whatever the scroll position or screen size. */}
+              <Dialog
+                open={!!editing && isOrganizer}
+                onOpenChange={(open) => {
+                  if (!open) setEditing(null);
+                }}
+              >
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle className="font-display text-xl font-bold uppercase">
+                      {editing && editing !== "new" ? "Edit expense" : "Record expense"}
+                    </DialogTitle>
+                    <DialogDescription>
+                      Record what was spent keeping the shared equipment in shape.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {editing && (
+                    <ExpenseForm
+                      key={editing === "new" ? "new" : editing.id}
+                      resources={data.resources}
+                      expense={editing === "new" ? null : editing}
+                      onClose={() => setEditing(null)}
+                      onSaved={() => {
+                        setEditing(null);
+                        refresh();
+                      }}
+                    />
+                  )}
+                </DialogContent>
+              </Dialog>
 
               <section>
                 <h2 className="mb-2 font-display text-lg font-bold uppercase">Expenses</h2>
@@ -238,43 +263,46 @@ function MaintenancePage() {
                 ) : (
                   <ul className="divide-y rounded-xl border bg-card">
                     {data.records.map((e) => (
-                      <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
-                        <span className="w-24 text-xs tabular-nums text-muted-foreground">
-                          {e.date}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium">
-                            {e.resourceName}{" "}
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      <li
+                        key={e.id}
+                        className="flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:gap-4"
+                      >
+                        <div className="min-w-0 flex-1 space-y-1">
+                          {/* What was repaired, with the cost pinned to the right. */}
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="min-w-0 font-medium leading-snug">{e.resourceName}</p>
+                            <span className="shrink-0 font-display text-lg font-bold leading-snug tabular-nums sm:hidden">
+                              {formatMoney(e.cost)}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
                               {kindLabel(e.kind)}
                             </span>
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {e.description}
-                            {e.paidBy ? ` · paid by ${e.paidBy}` : ""}
-                          </p>
+                            <span className="tabular-nums">{e.date}</span>
+                            {e.paidBy && <span>· paid by {e.paidBy}</span>}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{e.description}</p>
                         </div>
-                        <span className="font-display text-lg font-bold tabular-nums">
+                        <span className="hidden shrink-0 font-display text-lg font-bold tabular-nums sm:block">
                           {formatMoney(e.cost)}
                         </span>
                         {isOrganizer && (
-                          <div className="flex gap-1">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              aria-label="Edit expense"
+                          <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-1">
+                            <RowAction
+                              label="Edit expense"
+                              text="Edit"
                               onClick={() => setEditing(e)}
                             >
                               <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              aria-label="Delete expense"
+                            </RowAction>
+                            <RowAction
+                              label="Delete expense"
+                              text="Delete"
                               onClick={() => remove(e)}
                             >
                               <Trash2 className="h-4 w-4" />
-                            </Button>
+                            </RowAction>
                           </div>
                         )}
                       </li>
@@ -294,6 +322,32 @@ function MaintenancePage() {
         </TabsContent>
       </Tabs>
     </AppShell>
+  );
+}
+
+/** A labelled button on phones (easy to tap and understand), a compact icon button on wider screens. */
+function RowAction({
+  label,
+  text,
+  onClick,
+  children,
+}: {
+  label: string;
+  text: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="sm:h-9 sm:w-9 sm:border-transparent sm:px-0"
+      aria-label={label}
+      onClick={onClick}
+    >
+      {children}
+      <span className="sm:sr-only">{text}</span>
+    </Button>
   );
 }
 
@@ -368,10 +422,7 @@ function ExpenseForm({
     );
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-xl border bg-card p-4">
-      <h2 className="font-display text-lg font-bold uppercase">
-        {expense ? "Edit expense" : "Record expense"}
-      </h2>
+    <form onSubmit={submit} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <Label>Resource</Label>
@@ -433,12 +484,12 @@ function ExpenseForm({
           />
         </div>
       </div>
-      <div className="flex gap-2">
-        <Button type="submit" disabled={busy || !resourceId || !description.trim()}>
-          {expense ? "Save changes" : "Save expense"}
-        </Button>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="ghost" onClick={onClose}>
           Cancel
+        </Button>
+        <Button type="submit" disabled={busy || !resourceId || !description.trim()}>
+          {expense ? "Save changes" : "Save expense"}
         </Button>
       </div>
     </form>
@@ -631,36 +682,48 @@ function ResourcesPanel({
                 </li>
               );
             return (
-              <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={`font-medium ${r.active ? "" : "text-muted-foreground line-through"}`}
-                  >
-                    {r.name}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {catLabel(r.category)}
-                      {r.active ? "" : " · retired"}
+              <li
+                key={r.id}
+                className="flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:gap-4"
+              >
+                <div className="min-w-0 flex-1 space-y-1">
+                  {/* Name with the spend so far pinned to the right. */}
+                  <div className="flex items-start justify-between gap-3">
+                    <p
+                      className={`min-w-0 font-medium leading-snug ${r.active ? "" : "text-muted-foreground line-through"}`}
+                    >
+                      {r.name}
+                    </p>
+                    <span className="shrink-0 text-right text-sm font-semibold leading-snug tabular-nums sm:hidden">
+                      {t ? formatMoney(t.total) : "—"}
                     </span>
-                  </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                      {catLabel(r.category)}
+                    </span>
+                    {!r.active && (
+                      <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive">
+                        Retired
+                      </span>
+                    )}
+                    <span>
+                      {t ? `${t.count} expense${t.count === 1 ? "" : "s"}` : "no expenses"}
+                    </span>
+                  </div>
                   {r.notes && <p className="text-sm text-muted-foreground">{r.notes}</p>}
                 </div>
-                <span className="text-sm tabular-nums text-muted-foreground">
-                  {t ? `${t.count} × · ${formatMoney(t.total)}` : "no expenses"}
+                <span className="hidden shrink-0 text-right text-sm font-semibold tabular-nums sm:block">
+                  {t ? formatMoney(t.total) : "—"}
                 </span>
                 {isOrganizer && (
-                  <div className="flex gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      aria-label="Edit resource"
-                      onClick={() => setEditingId(r.id)}
-                    >
+                  <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-1">
+                    <RowAction label="Edit resource" text="Edit" onClick={() => setEditingId(r.id)}>
                       <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      aria-label={r.active ? "Retire resource" : "Reactivate resource"}
+                    </RowAction>
+                    <RowAction
+                      label={r.active ? "Retire resource" : "Reactivate resource"}
+                      text={r.active ? "Retire" : "Restore"}
                       onClick={() => setActive(r, !r.active)}
                     >
                       {r.active ? (
@@ -668,15 +731,10 @@ function ResourcesPanel({
                       ) : (
                         <RotateCcw className="h-4 w-4" />
                       )}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      aria-label="Delete resource"
-                      onClick={() => remove(r)}
-                    >
+                    </RowAction>
+                    <RowAction label="Delete resource" text="Delete" onClick={() => remove(r)}>
                       <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </RowAction>
                   </div>
                 )}
               </li>
