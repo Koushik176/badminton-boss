@@ -39,6 +39,11 @@ type DuesData = {
 type PlayerOption = { id: string; name: string };
 
 const field = "h-9 w-full rounded-md border bg-background px-2 text-sm";
+/** Column widths for the balances table on screens wide enough for columns. */
+const BALANCE_COLS = "sm:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem]";
+/** +₹1,200.00 / −₹400.00 / ₹0.00, so positive and negative nets line up and read clearly. */
+const signedMoney = (n: number) =>
+  n > 0 ? `+${formatMoney(n)}` : n < 0 ? `−${formatMoney(-n)}` : formatMoney(0);
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function DuesPanel({ isOrganizer }: { isOrganizer: boolean }) {
@@ -119,12 +124,24 @@ export function DuesPanel({ isOrganizer }: { isOrganizer: boolean }) {
           <p className="mb-3 text-xs text-muted-foreground">
             Unpaid amounts only. Positive means the player is net owed money.
           </p>
+          {/* Column headings only where there is room for columns. */}
+          <div
+            className={`hidden gap-x-3 border-b pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid ${BALANCE_COLS}`}
+          >
+            <span>Player</span>
+            <span className="text-right">Owes</span>
+            <span className="text-right">Is owed</span>
+            <span className="text-right">Net</span>
+          </div>
           <ul className="divide-y text-sm">
             {data.balances.map((b) => (
-              <li key={b.playerId} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">
+              <li
+                key={b.playerId}
+                className={`grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5 py-2.5 sm:py-2 ${BALANCE_COLS}`}
+              >
                 <button
                   type="button"
-                  className="min-w-0 flex-1 truncate text-left font-medium hover:underline"
+                  className="order-1 min-w-0 truncate text-left font-medium hover:underline"
                   onClick={() => {
                     setPlayerId(b.playerId);
                     setRole("any");
@@ -133,14 +150,22 @@ export function DuesPanel({ isOrganizer }: { isOrganizer: boolean }) {
                 >
                   {b.name}
                 </button>
-                <span className="text-muted-foreground">owes {formatMoney(b.owes)}</span>
-                <span className="text-muted-foreground">is owed {formatMoney(b.owed)}</span>
                 <span
-                  className={`w-28 text-right font-semibold tabular-nums ${b.net > 0 ? "text-primary" : b.net < 0 ? "text-destructive" : ""}`}
+                  className={`order-2 text-right font-semibold tabular-nums sm:order-4 ${b.net > 0 ? "text-primary" : b.net < 0 ? "text-destructive" : "text-muted-foreground"}`}
                 >
-                  {b.net > 0 ? "+" : ""}
-                  {formatMoney(b.net)}
+                  {signedMoney(b.net)}
                 </span>
+                {/* On a phone: a small second line under the name. On wider screens: two columns. */}
+                <div className="order-3 col-span-2 flex flex-wrap gap-x-4 text-xs text-muted-foreground sm:contents sm:text-sm">
+                  <span className="sm:order-2 sm:text-right sm:tabular-nums">
+                    <span className="sm:hidden">Owes </span>
+                    {formatMoney(b.owes)}
+                  </span>
+                  <span className="sm:order-3 sm:text-right sm:tabular-nums">
+                    <span className="sm:hidden">Is owed </span>
+                    {formatMoney(b.owed)}
+                  </span>
+                </div>
               </li>
             ))}
           </ul>
@@ -256,51 +281,67 @@ export function DuesPanel({ isOrganizer }: { isOrganizer: boolean }) {
                   />
                 </li>
               ) : (
-                <li key={d.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">
-                      {d.debtorName} <span className="text-muted-foreground">owes</span>{" "}
-                      {d.creditorName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {d.date}
-                      {d.reason ? ` · ${d.reason}` : ""}
-                      {d.paid && d.paidOn ? ` · paid on ${d.paidOn}` : ""}
-                    </p>
+                <li
+                  key={d.id}
+                  className="flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:gap-4"
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    {/* Who owes whom, with the amount pinned to the right. */}
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 font-medium leading-snug">
+                        {d.debtorName}{" "}
+                        <span className="font-normal text-muted-foreground">owes</span>{" "}
+                        {d.creditorName}
+                      </p>
+                      <span className="shrink-0 font-display text-lg font-bold leading-snug tabular-nums sm:hidden">
+                        {formatMoney(d.amount)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${d.paid ? "bg-primary text-primary-foreground" : "bg-destructive/15 text-destructive"}`}
+                      >
+                        {d.paid ? "Paid" : "Unpaid"}
+                      </span>
+                      <span className="tabular-nums">{d.date}</span>
+                      {d.paid && d.paidOn && <span>· paid {d.paidOn}</span>}
+                    </div>
+                    {d.reason && <p className="text-sm text-muted-foreground">{d.reason}</p>}
                   </div>
-                  <span className="font-display text-lg font-bold tabular-nums">
+                  <span className="hidden shrink-0 font-display text-lg font-bold tabular-nums sm:block">
                     {formatMoney(d.amount)}
                   </span>
-                  <span
-                    className={`rounded-md px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${d.paid ? "bg-primary text-primary-foreground" : "bg-destructive/15 text-destructive"}`}
-                  >
-                    {d.paid ? "Paid" : "Unpaid"}
-                  </span>
                   {isOrganizer && (
-                    <div className="flex gap-1">
+                    <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-1">
                       <Button
-                        size="icon"
-                        variant="ghost"
+                        size="sm"
+                        variant="outline"
+                        className="sm:h-9 sm:w-9 sm:border-transparent sm:px-0"
                         aria-label={d.paid ? "Mark as unpaid" : "Mark as paid"}
                         onClick={() => save(d, { paid: !d.paid })}
                       >
                         {d.paid ? <Undo2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                        <span className="sm:sr-only">{d.paid ? "Undo" : "Paid"}</span>
                       </Button>
                       <Button
-                        size="icon"
-                        variant="ghost"
+                        size="sm"
+                        variant="outline"
+                        className="sm:h-9 sm:w-9 sm:border-transparent sm:px-0"
                         aria-label="Edit"
                         onClick={() => setEditingId(d.id)}
                       >
                         <Pencil className="h-4 w-4" />
+                        <span className="sm:sr-only">Edit</span>
                       </Button>
                       <Button
-                        size="icon"
-                        variant="ghost"
+                        size="sm"
+                        variant="outline"
+                        className="sm:h-9 sm:w-9 sm:border-transparent sm:px-0"
                         aria-label="Delete"
                         onClick={() => remove(d)}
                       >
                         <Trash2 className="h-4 w-4" />
+                        <span className="sm:sr-only">Delete</span>
                       </Button>
                     </div>
                   )}
