@@ -34,7 +34,7 @@ export const KIND_LABEL: Record<MaintenanceKind, string> = {
 export const CURRENCY_SYMBOL = "₹";
 
 export const formatMoney = (amount: number) =>
-  `${CURRENCY_SYMBOL}${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `${amount < 0 ? "-" : ""}${CURRENCY_SYMBOL}${Math.abs(amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Largest amount a single expense may have (matches DECIMAL(10,2)). */
 export const MAX_COST = 99_999_999.99;

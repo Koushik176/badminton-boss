@@ -53,6 +53,8 @@ describe("formatMoney", () => {
   it("shows the currency symbol with two decimals", () => {
     expect(formatMoney(1234.5)).toBe("₹1,234.50");
     expect(formatMoney(0)).toBe("₹0.00");
+    expect(formatMoney(-400)).toBe("-₹400.00");
+    expect(formatMoney(-0)).toBe("₹0.00");
   });
 });
 
