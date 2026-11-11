@@ -7,6 +7,7 @@ import { api, useAuth } from "@/lib/api";
 import {
   balancedTeams,
   buildTeams,
+  MIN_MATCHES_FOR_STRENGTH,
   playerStrength,
   pairingKey,
   knockoutBracket,
@@ -380,7 +381,7 @@ function Wizard() {
                   <span className="text-xs text-muted-foreground">
                     {balanced
                       ? history
-                        ? "Avoids players who have often been teammates and pairs stronger with weaker players, using past results."
+                        ? `Avoids players who have often been teammates and pairs high win % players with low win % players. Players with fewer than ${MIN_MATCHES_FOR_STRENGTH} matches count as average.`
                         : "Loading match history…"
                       : "Ignores match history and results."}
                   </span>

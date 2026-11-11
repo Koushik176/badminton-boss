@@ -87,12 +87,19 @@ export function teammateCounts(
   return out;
 }
 
+/** A win percentage is only trusted once a player has played at least this many matches. */
+export const MIN_MATCHES_FOR_STRENGTH = 15;
+
+/** Strength given to players who have not played enough matches: exactly average. */
+export const AVERAGE_STRENGTH = 0.5;
+
 /**
- * Playing strength in 0..1 from win/loss history. Laplace-smoothed so a player with no history
- * is neutral (0.5) and a couple of results cannot swing it to the extremes.
+ * Playing strength in 0..1 for pairing: the player's win percentage (wins / matches played).
+ * Below MIN_MATCHES_FOR_STRENGTH matches the percentage is not reliable, so the player counts
+ * as an average player. Total wins are not used, so playing more does not make anyone "stronger".
  */
 export const playerStrength = (p: { played: number; wins: number }) =>
-  (p.wins + 1) / (p.played + 2);
+  p.played >= MIN_MATCHES_FOR_STRENGTH ? p.wins / p.played : AVERAGE_STRENGTH;
 
 /**
  * Doubles teams that (1) avoid pairing players who have already been teammates often and

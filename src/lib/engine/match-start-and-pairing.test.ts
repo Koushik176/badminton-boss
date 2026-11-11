@@ -10,7 +10,14 @@ import {
   type MatchAction,
   type StartSetup,
 } from "./scoring";
-import { balancedTeams, playerStrength, seededRng, teammateCounts } from "./tournament";
+import {
+  AVERAGE_STRENGTH,
+  MIN_MATCHES_FOR_STRENGTH,
+  balancedTeams,
+  playerStrength,
+  seededRng,
+  teammateCounts,
+} from "./tournament";
 import { assertTossConsistent, schedulePosition } from "../server/domain";
 
 const initial = () =>
@@ -127,16 +134,60 @@ describe("history and strength based pairing", () => {
   const none = new Map<string, number>();
   const same = new Map(players.map((p) => [p, 0.5]));
 
-  it("counts previous partners and smooths strength", () => {
+  it("counts previous partners", () => {
     const c = teammateCounts([
       { a1: "p0", a2: "p1", b1: "p2", b2: "p3" },
       { a1: "p1", a2: "p0", b1: "p4", b2: "p5" },
     ]);
     expect(c.get("p0+p1")).toBe(2);
     expect(c.get("p2+p3")).toBe(1);
-    expect(playerStrength({ played: 0, wins: 0 })).toBe(0.5);
-    expect(playerStrength({ played: 10, wins: 10 })).toBeGreaterThan(0.9);
-    expect(playerStrength({ played: 10, wins: 0 })).toBeLessThan(0.1);
+  });
+
+  it("uses win percentage once a player has 15 or more matches", () => {
+    expect(playerStrength({ played: 15, wins: 12 })).toBeCloseTo(0.8, 10);
+    expect(playerStrength({ played: 20, wins: 5 })).toBeCloseTo(0.25, 10);
+    expect(playerStrength({ played: 15, wins: 0 })).toBe(0);
+    expect(playerStrength({ played: 40, wins: 40 })).toBe(1);
+  });
+
+  it("treats anyone below 15 matches as an average player, whatever their record", () => {
+    expect(MIN_MATCHES_FOR_STRENGTH).toBe(15);
+    expect(playerStrength({ played: 0, wins: 0 })).toBe(AVERAGE_STRENGTH);
+    expect(playerStrength({ played: 14, wins: 14 })).toBe(AVERAGE_STRENGTH);
+    expect(playerStrength({ played: 14, wins: 0 })).toBe(AVERAGE_STRENGTH);
+    expect(AVERAGE_STRENGTH).toBe(0.5);
+  });
+
+  it("is win percentage, not total wins: more wins can still mean a lower strength", () => {
+    const manyWins = playerStrength({ played: 60, wins: 30 }); // 30 wins, 50%
+    const fewWins = playerStrength({ played: 15, wins: 12 }); // 12 wins, 80%
+    expect(fewWins).toBeGreaterThan(manyWins);
+  });
+
+  it("pairs proven strong players with proven weak ones and keeps newcomers together", () => {
+    const rec = new Map([
+      ["s1", { played: 20, wins: 18 }], // 90%
+      ["s2", { played: 20, wins: 18 }],
+      ["w1", { played: 20, wins: 2 }], // 10%
+      ["w2", { played: 20, wins: 2 }],
+      ["n1", { played: 14, wins: 14 }], // too few matches: average, despite 100%
+      ["n2", { played: 3, wins: 0 }],
+      ["n3", { played: 0, wins: 0 }],
+      ["n4", { played: 9, wins: 9 }],
+    ]);
+    const strength = new Map([...rec].map(([id, r]) => [id, playerStrength(r)]));
+    for (let seed = 1; seed <= 10; seed++) {
+      const t = balancedTeams([...rec.keys()], {
+        strength,
+        together: none,
+        jitter: 0,
+        rng: seededRng(seed),
+      });
+      for (const x of t) {
+        const kinds = x.players.map((p) => p[0]).sort();
+        expect(["n,n", "s,w"]).toContain(kinds.join());
+      }
+    }
   });
 
   it("assigns every player exactly once and keeps locked pairs", () => {
