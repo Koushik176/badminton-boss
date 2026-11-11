@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Check, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
@@ -13,7 +13,9 @@ import {
   type DueStatus,
 } from "@/lib/engine/dues";
 import { formatMoney } from "@/lib/engine/maintenance";
+import { paginate } from "@/lib/pagination";
 import { Empty } from "@/components/AppShell";
+import { Pagination } from "@/components/Pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +47,7 @@ const BALANCE_COLS = "sm:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem]";
 const signedMoney = (n: number) =>
   n > 0 ? `+${formatMoney(n)}` : n < 0 ? `−${formatMoney(-n)}` : formatMoney(0);
 const today = () => new Date().toISOString().slice(0, 10);
+const DUES_PAGE_SIZE = 10;
 
 export function DuesPanel({ isOrganizer }: { isOrganizer: boolean }) {
   const qc = useQueryClient();
@@ -69,14 +72,19 @@ export function DuesPanel({ isOrganizer }: { isOrganizer: boolean }) {
   const [sort, setSort] = useState<DueSort>("newest");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [page, setPage] = useState(1);
 
   const shown = useMemo(
     () => sortDues(filterDues(data?.dues ?? [], { status, playerId, role, search }), sort),
     [data, status, playerId, role, search, sort],
   );
 
+  // Any change of filters or sorting starts again from the first page.
+  useEffect(() => setPage(1), [status, playerId, role, search, sort]);
+
   if (error) return <p className="text-destructive">{(error as Error).message}</p>;
   if (isLoading || !data) return <Skeleton className="h-64" />;
+  const paged = paginate(shown, page, DUES_PAGE_SIZE);
 
   const save = async (d: Due, patch: Partial<Due>) => {
     const next = { ...d, ...patch };
@@ -268,7 +276,7 @@ export function DuesPanel({ isOrganizer }: { isOrganizer: boolean }) {
           </Empty>
         ) : (
           <ul className="divide-y rounded-xl border bg-card">
-            {shown.map((d) =>
+            {paged.items.map((d) =>
               editingId === d.id ? (
                 <li key={d.id} className="p-3">
                   <EditDue
@@ -350,9 +358,12 @@ export function DuesPanel({ isOrganizer }: { isOrganizer: boolean }) {
             )}
           </ul>
         )}
+        <Pagination page={paged} onPage={setPage} />
         <p className="mt-2 text-xs text-muted-foreground">
-          Showing {shown.length} of {data.dues.length}. Splits are entered by hand and are not tied
-          to the recorded expenses.
+          {shown.length === data.dues.length
+            ? `${data.dues.length} entries`
+            : `${shown.length} of ${data.dues.length} entries match the filters`}
+          . Splits are entered by hand and are not tied to the recorded expenses.
         </p>
       </section>
     </div>

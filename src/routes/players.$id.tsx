@@ -1,7 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { paginate } from "@/lib/pagination";
 import { AppShell, Empty } from "@/components/AppShell";
+import { Pagination } from "@/components/Pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/players/$id")({
@@ -19,12 +22,28 @@ export const Route = createFileRoute("/players/$id")({
   component: Player,
 });
 
+const HISTORY_PAGE_SIZE = 10;
+
+type HistoryItem = {
+  id: string | number;
+  won: boolean;
+  opponent: string;
+  tournament: string;
+  round: string;
+  date: string;
+  side: "A" | "B";
+  games: { A: number; B: number }[];
+};
+
 function Player() {
   const { id } = Route.useParams();
   const { data, isLoading, error } = useQuery({
     queryKey: ["player", id],
     queryFn: () => api(`/players/${id}`),
   });
+  const [historyPage, setHistoryPage] = useState(1);
+  // Opening another player starts again from the first page.
+  useEffect(() => setHistoryPage(1), [id]);
   if (error)
     return (
       <AppShell title="Player">
@@ -38,6 +57,7 @@ function Player() {
       </AppShell>
     );
   const s = data.stats;
+  const history = paginate(data.history as HistoryItem[], historyPage, HISTORY_PAGE_SIZE);
   return (
     <AppShell title={data.player.name}>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
@@ -80,18 +100,9 @@ function Player() {
           {data.history.length === 0 ? (
             <Empty title="No matches played" />
           ) : (
-            <ul className="divide-y rounded-xl border bg-card">
-              {data.history.map(
-                (m: {
-                  id: string | number;
-                  won: boolean;
-                  opponent: string;
-                  tournament: string;
-                  round: string;
-                  date: string;
-                  side: "A" | "B";
-                  games: { A: number; B: number }[];
-                }) => (
+            <>
+              <ul className="divide-y rounded-xl border bg-card">
+                {history.items.map((m) => (
                   <li key={m.id}>
                     <Link
                       to="/matches/$id"
@@ -118,9 +129,10 @@ function Player() {
                       </span>
                     </Link>
                   </li>
-                ),
-              )}
-            </ul>
+                ))}
+              </ul>
+              <Pagination page={history} onPage={setHistoryPage} />
+            </>
           )}
         </section>
       </div>

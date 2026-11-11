@@ -39,7 +39,7 @@ const since = (p: string) => {
 
 function Stats() {
   const [period, setPeriod] = useState("all");
-  const [sort, setSort] = useState<"wins" | "winPct" | "pd" | "titles">("wins");
+  const [sort, setSort] = useState<"wins" | "winPct" | "pd" | "titles" | "runnerUps">("wins");
   const { data = [] } = useQuery({
     queryKey: ["stats", period],
     queryFn: () =>
@@ -53,6 +53,7 @@ function Stats() {
           winPct: number;
           pd: number;
           titles: number;
+          runnerUps: number;
         }[]
       >(`/stats${since(period) ? `?since=${since(period)}` : ""}`),
   });
@@ -79,6 +80,7 @@ function Stats() {
             <SelectItem value="winPct">Best win %</SelectItem>
             <SelectItem value="pd">Point difference</SelectItem>
             <SelectItem value="titles">Titles</SelectItem>
+            <SelectItem value="runnerUps">Runner-ups</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -96,7 +98,7 @@ function Stats() {
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
             <tr>
-              {["#", "Player", "MP", "W", "L", "Win %", "PD", "Titles"].map((h) => (
+              {["#", "Player", "MP", "W", "L", "Win %", "PD", "Titles", "Runner-ups"].map((h) => (
                 <th key={h} className="p-3">
                   {h}
                 </th>
@@ -125,6 +127,7 @@ function Stats() {
                   {r.pd}
                 </td>
                 <td className="p-3">{r.titles}</td>
+                <td className="p-3">{r.runnerUps}</td>
               </tr>
             ))}
           </tbody>
