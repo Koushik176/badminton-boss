@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Trophy } from "lucide-react";
+import { Medal, Plus, Trophy } from "lucide-react";
 import { api, useAuth } from "@/lib/api";
 import { AppShell, Empty, StatusBadge } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ type Tournament = {
   done: number;
   total: number;
   champion_name?: string | null;
+  runner_up_name?: string | null;
 };
 
 export const Route = createFileRoute("/tournaments/")({
@@ -64,9 +65,22 @@ function TournamentCard({ t }: { t: Tournament }) {
         </span>
       </div>
       {t.champion_name && (
-        <p className="mt-3 flex items-center gap-2 font-semibold text-primary">
-          <Trophy className="h-4 w-4" /> {t.champion_name}
-        </p>
+        <div className="mt-3 space-y-1">
+          <p className="flex items-center gap-2 font-semibold text-primary">
+            <Trophy className="h-4 w-4 shrink-0" />
+            <span className="min-w-0">{t.champion_name}</span>
+            <span className="text-xs font-normal uppercase tracking-wide text-muted-foreground">
+              Winner
+            </span>
+          </p>
+          {t.runner_up_name && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Medal className="h-4 w-4 shrink-0" />
+              <span className="min-w-0">{t.runner_up_name}</span>
+              <span className="text-xs uppercase tracking-wide">Runner-up</span>
+            </p>
+          )}
+        </div>
       )}
     </Link>
   );

@@ -55,24 +55,20 @@ function Wizard() {
     queryFn: () =>
       api<{
         players: { id: string; played: number; wins: number }[];
-        together: { a: string; b: string; count: number }[];
+        together: { a: string; b: string; count: number; last: string | null }[];
       }>("/pairings"),
   });
-  const history = useMemo(
-    () =>
-      insights
-        ? {
-            strength: new Map(insights.players.map((p) => [p.id, playerStrength(p)])),
-            together: new Map(
-              insights.together.map((t) => [
-                t.a < t.b ? `${t.a}+${t.b}` : `${t.b}+${t.a}`,
-                t.count,
-              ]),
-            ),
-          }
-        : null,
-    [insights],
-  );
+  const history = useMemo(() => {
+    if (!insights) return null;
+    const key = (t: { a: string; b: string }) => (t.a < t.b ? `${t.a}+${t.b}` : `${t.b}+${t.a}`);
+    return {
+      strength: new Map(insights.players.map((p) => [p.id, playerStrength(p)])),
+      together: new Map(insights.together.map((t) => [key(t), t.count])),
+      lastTogether: new Map(
+        insights.together.flatMap((t) => (t.last ? [[key(t), t.last] as [string, string]] : [])),
+      ),
+    };
+  }, [insights]);
   const [balanced, setBalanced] = useState(true);
 
   const [step, setStep] = useState(0);
@@ -381,7 +377,7 @@ function Wizard() {
                   <span className="text-xs text-muted-foreground">
                     {balanced
                       ? history
-                        ? `Avoids players who have often been teammates and pairs high win % players with low win % players. Players with fewer than ${MIN_MATCHES_FOR_STRENGTH} matches count as average.`
+                        ? `First balances teams by win % (high with low; players under ${MIN_MATCHES_FOR_STRENGTH} matches count as average). Then, between equally balanced options, prefers partners who have not played together for the longest time.`
                         : "Loading match history…"
                       : "Ignores match history and results."}
                   </span>

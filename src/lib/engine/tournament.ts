@@ -87,6 +87,44 @@ export function teammateCounts(
   return out;
 }
 
+/** How often and how recently each pair of players has been teammates in completed matches. */
+export function teammateHistory(
+  rows: { a1: string; a2: string; b1: string; b2: string; tdate?: string | null }[],
+): Map<string, { count: number; last: string | null }> {
+  const out = new Map<string, { count: number; last: string | null }>();
+  for (const r of rows)
+    for (const [x, y] of [
+      [r.a1, r.a2],
+      [r.b1, r.b2],
+    ] as const) {
+      const k = teammateKey(x, y);
+      const e = out.get(k) ?? { count: 0, last: null };
+      e.count++;
+      // ISO dates (YYYY-MM-DD) sort correctly as plain strings.
+      if (r.tdate && (!e.last || r.tdate > e.last)) e.last = r.tdate;
+      out.set(k, e);
+    }
+  return out;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * How much it should be avoided to pair these two again, from 0 (never teammates) to 1 (just
+ * played together). It falls as the time since they last teamed up grows: about 0.5 after a
+ * month, 0.1 after nine months. Each extra time together adds a little. A pair with no known
+ * date is treated as having played recently.
+ */
+export function repeatPenalty(count: number, lastDate: string | null | undefined, now: number) {
+  if (!count) return 0;
+  const t = lastDate ? Date.parse(lastDate) : Number.NaN;
+  const days = Number.isFinite(t) ? Math.max(0, (now - t) / DAY_MS) : 0;
+  return Math.min(1, 1 / (1 + days / 30) + 0.05 * (count - 1));
+}
+
+/** Two teams count as equally balanced when their combined win % differ by less than this. */
+export const STRENGTH_BAND = 0.1;
+
 /** A win percentage is only trusted once a player has played at least this many matches. */
 export const MIN_MATCHES_FOR_STRENGTH = 15;
 
@@ -102,10 +140,13 @@ export const playerStrength = (p: { played: number; wins: number }) =>
   p.played >= MIN_MATCHES_FOR_STRENGTH ? p.wins / p.played : AVERAGE_STRENGTH;
 
 /**
- * Doubles teams that (1) avoid pairing players who have already been teammates often and
- * (2) pair stronger players with weaker ones so teams are evenly matched. Locked pairs are
- * kept exactly. Randomised restarts + swap improvement; `jitter` varies the outcome between
- * reshuffles. Deterministic for a given `rng`.
+ * Doubles teams chosen in two priorities:
+ *  1. Win %: pair stronger players with weaker ones so every team has about the same combined
+ *     win % (teams within STRENGTH_BAND of each other count as equal). This always wins.
+ *  2. Among equally balanced options, prefer partners who have not played together for the
+ *     longest time (or never), using `together` (how many times) and `lastTogether` (when).
+ * Locked pairs are kept exactly. Randomised restarts + swap improvement; `jitter` varies the
+ * outcome between reshuffles. Deterministic for a given `rng` and `now`.
  */
 export function balancedTeams(
   players: string[],
@@ -113,6 +154,10 @@ export function balancedTeams(
     locked?: [string, string][];
     strength: ReadonlyMap<string, number>;
     together: ReadonlyMap<string, number>;
+    /** Date (YYYY-MM-DD) each pair last played together, keyed like `together`. */
+    lastTogether?: ReadonlyMap<string, string>;
+    /** "Today" in ms, for the time since pairs last played together. Defaults to now. */
+    now?: number;
     previousKey?: string | undefined;
     rng?: Rng | undefined;
     restarts?: number;
@@ -127,8 +172,11 @@ export function balancedTeams(
   if (free.length === 0) return base;
 
   const baseJitter = opts.jitter ?? 0.04;
-  const HISTORY = 1; // cost per previous match together
-  const STRENGTH = 6; // cost of a team's combined strength being away from the average team
+  const now = opts.now ?? Date.now();
+  // Each band of imbalance costs far more than any possible repeat-partner cost (at most 1 per
+  // team), so win % balance is decided first and history only breaks ties between equal options.
+  const BAND_STEP = 50;
+  const FINE = 6; // tiny extra preference for the closest balance inside a band
 
   /** Best pairings found from random restarts, cheapest first. */
   const search = (jitter: number) => {
@@ -136,9 +184,16 @@ export function balancedTeams(
       free.map((p) => [p, (opts.strength.get(p) ?? 0.5) + (rng() - 0.5) * 2 * jitter]),
     );
     const mean = [...s.values()].reduce((a, b) => a + b, 0) / free.length;
-    const pairCost = (a: string, b: string) =>
-      HISTORY * (opts.together.get(teammateKey(a, b)) ?? 0) +
-      STRENGTH * (s.get(a)! + s.get(b)! - 2 * mean) ** 2;
+    const pairCost = (a: string, b: string) => {
+      const dev = s.get(a)! + s.get(b)! - 2 * mean;
+      const band = Math.floor(Math.abs(dev) / STRENGTH_BAND + 1e-9);
+      const k = teammateKey(a, b);
+      return (
+        BAND_STEP * band * band +
+        FINE * dev * dev +
+        repeatPenalty(opts.together.get(k) ?? 0, opts.lastTogether?.get(k), now)
+      );
+    };
     return improve(pairCost);
   };
 
@@ -404,15 +459,60 @@ export function standings(teams: string[], results: ResultRow[]): StandingRow[] 
     A.pd += d;
     B.pd -= d;
   }
-  const rows = [...map.values()];
-  const h2h = (x: string, y: string) => {
-    const m = results.find((r) => (r.a === x && r.b === y) || (r.a === y && r.b === x));
-    if (!m) return 0;
-    return m.winner === x ? -1 : 1;
-  };
-  return rows.sort(
-    (x, y) => y.points - x.points || y.pd - x.pd || y.scored - x.scored || h2h(x.team, y.team),
-  );
+  // 1. League points (two per win, so equal points means equal wins), 2. point difference.
+  const ranked = [...map.values()].sort((x, y) => y.points - x.points || y.pd - x.pd);
+  // Teams still level on both are separated by 3. head-to-head, then 4. points scored. Head-to-head
+  // only looks at matches between the tied teams, so it stays consistent for 3-way ties too.
+  const out: StandingRow[] = [];
+  for (let i = 0; i < ranked.length;) {
+    let j = i + 1;
+    while (
+      j < ranked.length &&
+      ranked[j]!.points === ranked[i]!.points &&
+      ranked[j]!.pd === ranked[i]!.pd
+    )
+      j++;
+    const group = ranked.slice(i, j);
+    if (group.length > 1) {
+      const ids = new Set(group.map((g) => g.team));
+      const h2hWins = new Map(group.map((g) => [g.team, 0]));
+      for (const r of results)
+        if (ids.has(r.a) && ids.has(r.b) && r.winner)
+          h2hWins.set(r.winner, (h2hWins.get(r.winner) ?? 0) + 1);
+      group.sort((x, y) => h2hWins.get(y.team)! - h2hWins.get(x.team)! || y.scored - x.scored);
+    }
+    out.push(...group);
+    i = j;
+  }
+  return out;
+}
+
+/** What to do about the League Final after a league match is played or skipped. */
+export type LeagueFinalDecision =
+  { action: "none" } | { action: "wait" } | { action: "create"; teamA: string; teamB: string };
+
+/**
+ * The final is set up once no league match is left to play: every league match is either
+ * completed or skipped (a live or upcoming one still counts as left to play). It is played
+ * between the top two teams of the standings, which only count completed matches. Nothing
+ * happens if a final already exists or there are fewer than two teams.
+ */
+export function decideLeagueFinal(
+  matches: readonly { kind: string; status: string }[],
+  table: readonly { team: string }[],
+): LeagueFinalDecision {
+  if (matches.some((m) => m.kind === "LEAGUE_FINAL")) return { action: "none" };
+  const league = matches.filter((m) => m.kind === "LEAGUE");
+  if (league.length === 0) return { action: "none" };
+  if (league.some((m) => m.status === "UPCOMING" || m.status === "LIVE")) return { action: "wait" };
+  if (table.length < 2) return { action: "none" };
+  return { action: "create", teamA: table[0]!.team, teamB: table[1]!.team };
+}
+
+/** Champion and runner-up when the League Final is skipped: the top two of the standings. */
+export function championsWithoutFinal(table: readonly { team: string }[]) {
+  if (table.length === 0) return null;
+  return { champion: table[0]!.team, runnerUp: table[1]?.team ?? null };
 }
 
 export interface TeamMatchInput {
