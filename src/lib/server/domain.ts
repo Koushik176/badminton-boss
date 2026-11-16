@@ -16,7 +16,7 @@ import {
   roundName,
   scheduleLeague,
   standings,
-  teammateCounts,
+  teammateHistory,
   type Fixture,
   type ResultRow,
   type Rng,
@@ -560,9 +560,9 @@ export interface PlayerStat {
 /** History the team-creation wizard uses: results per player and how often pairs were teammates. */
 export async function pairingInsights() {
   const { stats, matches } = await playerStats();
-  const together = [...teammateCounts(matches).entries()].map(([k, count]) => {
+  const together = [...teammateHistory(matches).entries()].map(([k, h]) => {
     const [a, b] = k.split("+");
-    return { a: a!, b: b!, count };
+    return { a: a!, b: b!, count: h.count, last: h.last };
   });
   return { players: stats.map((s) => ({ id: s.id, played: s.played, wins: s.wins })), together };
 }

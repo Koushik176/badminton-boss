@@ -60,13 +60,14 @@ function Player() {
   const history = paginate(data.history as HistoryItem[], historyPage, HISTORY_PAGE_SIZE);
   return (
     <AppShell title={data.player.name}>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
         {[
           ["Played", s.played],
           ["Wins", s.wins],
           ["Losses", s.losses],
           ["Win %", `${s.winPct}%`],
           ["Pt diff", (s.pd > 0 ? "+" : "") + s.pd],
+          ["Tournaments", s.tournaments],
           ["Titles", s.titles],
         ].map(([l, v]) => (
           <div key={l} className="rounded-xl border bg-card p-3 text-center">
