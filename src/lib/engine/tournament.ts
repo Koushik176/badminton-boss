@@ -459,15 +459,60 @@ export function standings(teams: string[], results: ResultRow[]): StandingRow[] 
     A.pd += d;
     B.pd -= d;
   }
-  const rows = [...map.values()];
-  const h2h = (x: string, y: string) => {
-    const m = results.find((r) => (r.a === x && r.b === y) || (r.a === y && r.b === x));
-    if (!m) return 0;
-    return m.winner === x ? -1 : 1;
-  };
-  return rows.sort(
-    (x, y) => y.points - x.points || y.pd - x.pd || y.scored - x.scored || h2h(x.team, y.team),
-  );
+  // 1. League points (two per win, so equal points means equal wins), 2. point difference.
+  const ranked = [...map.values()].sort((x, y) => y.points - x.points || y.pd - x.pd);
+  // Teams still level on both are separated by 3. head-to-head, then 4. points scored. Head-to-head
+  // only looks at matches between the tied teams, so it stays consistent for 3-way ties too.
+  const out: StandingRow[] = [];
+  for (let i = 0; i < ranked.length;) {
+    let j = i + 1;
+    while (
+      j < ranked.length &&
+      ranked[j]!.points === ranked[i]!.points &&
+      ranked[j]!.pd === ranked[i]!.pd
+    )
+      j++;
+    const group = ranked.slice(i, j);
+    if (group.length > 1) {
+      const ids = new Set(group.map((g) => g.team));
+      const h2hWins = new Map(group.map((g) => [g.team, 0]));
+      for (const r of results)
+        if (ids.has(r.a) && ids.has(r.b) && r.winner)
+          h2hWins.set(r.winner, (h2hWins.get(r.winner) ?? 0) + 1);
+      group.sort((x, y) => h2hWins.get(y.team)! - h2hWins.get(x.team)! || y.scored - x.scored);
+    }
+    out.push(...group);
+    i = j;
+  }
+  return out;
+}
+
+/** What to do about the League Final after a league match is played or skipped. */
+export type LeagueFinalDecision =
+  { action: "none" } | { action: "wait" } | { action: "create"; teamA: string; teamB: string };
+
+/**
+ * The final is set up once no league match is left to play: every league match is either
+ * completed or skipped (a live or upcoming one still counts as left to play). It is played
+ * between the top two teams of the standings, which only count completed matches. Nothing
+ * happens if a final already exists or there are fewer than two teams.
+ */
+export function decideLeagueFinal(
+  matches: readonly { kind: string; status: string }[],
+  table: readonly { team: string }[],
+): LeagueFinalDecision {
+  if (matches.some((m) => m.kind === "LEAGUE_FINAL")) return { action: "none" };
+  const league = matches.filter((m) => m.kind === "LEAGUE");
+  if (league.length === 0) return { action: "none" };
+  if (league.some((m) => m.status === "UPCOMING" || m.status === "LIVE")) return { action: "wait" };
+  if (table.length < 2) return { action: "none" };
+  return { action: "create", teamA: table[0]!.team, teamB: table[1]!.team };
+}
+
+/** Champion and runner-up when the League Final is skipped: the top two of the standings. */
+export function championsWithoutFinal(table: readonly { team: string }[]) {
+  if (table.length === 0) return null;
+  return { champion: table[0]!.team, runnerUp: table[1]?.team ?? null };
 }
 
 export interface TeamMatchInput {

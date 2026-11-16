@@ -12,6 +12,8 @@ import {
   type CourtSide,
 } from "../engine/scoring";
 import {
+  championsWithoutFinal,
+  decideLeagueFinal,
   matchPointDiff,
   roundName,
   scheduleLeague,
@@ -216,10 +218,32 @@ const toResult = (m: any): ResultRow => ({
   games: m.games,
 });
 
-async function finishTournament(tid: string, champion: string, runnerUp: string) {
+async function finishTournament(tid: string, champion: string, runnerUp: string | null) {
   await exec(
     `UPDATE tournaments SET status='COMPLETED', champion_team_id=?, runner_up_team_id=? WHERE id=?`,
     [champion, runnerUp, tid],
+  );
+}
+
+/**
+ * Sets up the League Final once no league match is left to play (all completed or skipped).
+ * Safe to call after any league match is confirmed or skipped: it does nothing while matches
+ * remain, and never creates a second final (the insert itself checks, so retries and races are
+ * harmless).
+ */
+async function ensureLeagueFinal(tid: string) {
+  const [t] = await q(`SELECT type,status FROM tournaments WHERE id=?`, [tid]);
+  if (!t || t.type !== "LEAGUE" || t.status !== "LIVE") return;
+  const ms = await q(`SELECT kind,status FROM matches WHERE tournament_id=?`, [tid]);
+  const { standings: table } = await getTournament(tid);
+  const d = decideLeagueFinal(ms, table);
+  if (d.action !== "create") return;
+  const [{ mx }] = await q(`SELECT MAX(play_order) mx FROM matches WHERE tournament_id=?`, [tid]);
+  await exec(
+    `INSERT INTO matches (id,tournament_id,kind,round,round_name,team_a_id,team_b_id,status,play_order,format)
+     SELECT ?,?,'LEAGUE_FINAL',2,'League Final',?,?,'UPCOMING',?,1 FROM DUAL
+     WHERE NOT EXISTS (SELECT 1 FROM matches WHERE tournament_id=? AND kind='LEAGUE_FINAL')`,
+    [uid(), tid, d.teamA, d.teamB, Number(mx) + 1, tid],
   );
 }
 
@@ -235,25 +259,7 @@ async function advance(m: any, winner: string, loser: string) {
   } else if (m.kind === "LEAGUE_FINAL") {
     await finishTournament(m.tournament_id, winner, loser);
   } else {
-    const [{ c }] = await q(
-      `SELECT COUNT(*) c FROM matches WHERE tournament_id=? AND kind='LEAGUE' AND status<>'COMPLETED'`,
-      [m.tournament_id],
-    );
-    const [{ f }] = await q(
-      `SELECT COUNT(*) f FROM matches WHERE tournament_id=? AND kind='LEAGUE_FINAL'`,
-      [m.tournament_id],
-    );
-    if (Number(c) === 0 && Number(f) === 0) {
-      const { standings: table } = await getTournament(m.tournament_id);
-      if (table.length < 2) return;
-      const [{ mx }] = await q(`SELECT MAX(play_order) mx FROM matches WHERE tournament_id=?`, [
-        m.tournament_id,
-      ]);
-      await exec(
-        `INSERT INTO matches (id,tournament_id,kind,round,round_name,team_a_id,team_b_id,status,play_order,format) VALUES (?,?,'LEAGUE_FINAL',2,'League Final',?,?,'UPCOMING',?,1)`,
-        [uid(), m.tournament_id, table[0]!.team, table[1]!.team, Number(mx) + 1],
-      );
-    }
+    await ensureLeagueFinal(m.tournament_id);
   }
 }
 
@@ -407,6 +413,19 @@ export async function startMatch(id: string, input: StartInput) {
     throw new HttpError(400, "This match cannot be started.");
   if (!m.team_a_id || !m.team_b_id)
     throw new HttpError(400, "Both teams must be known before starting.");
+  const [trn] = await q(`SELECT status FROM tournaments WHERE id=?`, [m.tournament_id]);
+  if (trn?.status === "COMPLETED") throw new HttpError(409, "This tournament is finished.");
+  if (m.kind === "LEAGUE") {
+    const [fin] = await q(
+      `SELECT id FROM matches WHERE tournament_id=? AND kind='LEAGUE_FINAL' LIMIT 1`,
+      [m.tournament_id],
+    );
+    if (fin)
+      throw new HttpError(
+        409,
+        "The League Final is already set up, so this league match can no longer be played. Restore (unskip) it first if the final has not started.",
+      );
+  }
   const [{ c }] = await q(
     `SELECT COUNT(*) c FROM matches WHERE tournament_id=? AND status='LIVE'`,
     [m.tournament_id],
@@ -516,11 +535,54 @@ export async function confirmMatch(id: string, userId?: string) {
   return getMatch(id);
 }
 
+/**
+ * Restoring a skipped match must not leave the league in a contradictory state:
+ * - a skipped League Final can be restored: the tournament is reopened (winner cleared);
+ * - a skipped league match can be restored while the final has not started: a final that was
+ *   created without it is removed (it is created again once nothing is left to play);
+ * - otherwise (final live, played, or the tournament decided) it cannot be restored.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function prepareRestore(m: any) {
+  if (m.kind === "LEAGUE_FINAL") {
+    await exec(
+      `UPDATE tournaments SET status='LIVE', champion_team_id=NULL, runner_up_team_id=NULL WHERE id=? AND status='COMPLETED'`,
+      [m.tournament_id],
+    );
+    return;
+  }
+  if (m.kind !== "LEAGUE") return;
+  const [fin] = await q(
+    `SELECT id,status FROM matches WHERE tournament_id=? AND kind='LEAGUE_FINAL' LIMIT 1`,
+    [m.tournament_id],
+  );
+  if (!fin) return;
+  if (fin.status !== "UPCOMING")
+    throw new HttpError(
+      409,
+      "The League Final has already been decided or started, so this league match can no longer be restored. Restore a skipped final first to reopen the league.",
+    );
+  await exec(`DELETE FROM matches WHERE id=? AND status='UPCOMING'`, [fin.id]);
+}
+
 export async function scheduleOp(id: string, op: "up" | "down" | "end" | "skip" | "unskip") {
   const m = await loadRow(id);
   if (!["UPCOMING", "SKIPPED"].includes(m.status))
     throw new HttpError(400, "Only upcoming matches can be moved.");
-  if (op === "skip") return exec(`UPDATE matches SET status='SKIPPED' WHERE id=?`, [id]);
+  if (op === "skip") {
+    await exec(`UPDATE matches SET status='SKIPPED' WHERE id=?`, [id]);
+    if (m.kind === "LEAGUE") {
+      // Skipping the last league match that was left to play sets up the final straight away.
+      await ensureLeagueFinal(m.tournament_id);
+    } else if (m.kind === "LEAGUE_FINAL") {
+      // A skipped final is not played: the top team of the standings is the winner.
+      const { standings: table } = await getTournament(m.tournament_id);
+      const result = championsWithoutFinal(table);
+      if (result) await finishTournament(m.tournament_id, result.champion, result.runnerUp);
+    }
+    return 1;
+  }
+  if (m.status === "SKIPPED" && (op === "unskip" || op === "end")) await prepareRestore(m);
   if (op === "unskip") return exec(`UPDATE matches SET status='UPCOMING' WHERE id=?`, [id]);
   if (op === "end") {
     const [{ mx }] = await q(`SELECT MAX(play_order) mx FROM matches WHERE tournament_id=?`, [
