@@ -631,8 +631,11 @@ function TournamentPage() {
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             Tap a team to see its live, upcoming and completed matches. Top 2 play the League Final
-            (Best of 1). The final does not change this table. PD counts each game's margin, except
-            a deuce game (loser on 20+), which counts as ±1.
+            (Best of 1) once no league match is left to play; skipped matches do not count, and if
+            the final is skipped the top team wins. The final does not change this table. Teams
+            level on points are separated by point difference, then head-to-head, then points
+            scored. PD counts each game's margin, except a deuce game (loser on 20+), which counts
+            as ±1.
           </p>
         </TabsContent>
 

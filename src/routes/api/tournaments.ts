@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/tournaments")({
       GET: handle(async () =>
         json(
           await q(
-            "SELECT t.*, c.name champion_name, (SELECT COUNT(*) FROM teams x WHERE x.tournament_id=t.id) team_count, (SELECT COUNT(*) FROM matches m WHERE m.tournament_id=t.id AND m.status='COMPLETED') done, (SELECT COUNT(*) FROM matches m WHERE m.tournament_id=t.id AND m.status<>'BYE') total FROM tournaments t LEFT JOIN teams c ON c.id=t.champion_team_id ORDER BY t.date DESC, t.created_at DESC",
+            "SELECT t.*, c.name champion_name, r.name runner_up_name, (SELECT COUNT(*) FROM teams x WHERE x.tournament_id=t.id) team_count, (SELECT COUNT(*) FROM matches m WHERE m.tournament_id=t.id AND m.status='COMPLETED') done, (SELECT COUNT(*) FROM matches m WHERE m.tournament_id=t.id AND m.status<>'BYE') total FROM tournaments t LEFT JOIN teams c ON c.id=t.champion_team_id LEFT JOIN teams r ON r.id=t.runner_up_team_id ORDER BY t.date DESC, t.created_at DESC",
           ),
         ),
       ),

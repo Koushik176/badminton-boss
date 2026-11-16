@@ -52,6 +52,7 @@ function Stats() {
           losses: number;
           winPct: number;
           pd: number;
+          tournaments: number;
           titles: number;
           runnerUps: number;
         }[]
@@ -98,8 +99,19 @@ function Stats() {
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
             <tr>
-              {["#", "Player", "MP", "W", "L", "Win %", "PD", "Titles", "Runner-ups"].map((h) => (
-                <th key={h} className="p-3">
+              {[
+                "#",
+                "Player",
+                "MP",
+                "W",
+                "L",
+                "Win %",
+                "PD",
+                "Tournaments",
+                "Titles",
+                "Runner-ups",
+              ].map((h) => (
+                <th key={h} className="whitespace-nowrap p-3">
                   {h}
                 </th>
               ))}
@@ -126,6 +138,7 @@ function Stats() {
                   {r.pd > 0 ? "+" : ""}
                   {r.pd}
                 </td>
+                <td className="p-3">{r.tournaments}</td>
                 <td className="p-3">{r.titles}</td>
                 <td className="p-3">{r.runnerUps}</td>
               </tr>

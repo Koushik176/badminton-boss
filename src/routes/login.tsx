@@ -6,6 +6,7 @@ import { api, setSession } from "@/lib/api";
 import { Shuttle } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/PasswordInput";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/login")({
@@ -76,10 +77,10 @@ function Login() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="pw">Password</Label>
-          <Input
+          <PasswordInput
             id="pw"
-            type="password"
             required
+            autoComplete={setup ? "new-password" : "current-password"}
             minLength={setup ? 8 : 1}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
